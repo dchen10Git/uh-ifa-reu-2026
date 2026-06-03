@@ -15,8 +15,6 @@ import os
 import pickle as pkl
 from dask.distributed import Client, LocalCluster
 
-import mmr_id
-
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -30,23 +28,6 @@ m_earth = u.Mearth.to(u.Msun)
 r_sun = u.Rsun.to(u.AU) 
 
 # === DATA MANAGEMENT ===
-
-def data_df(n_out, times):
-    '''Sets up a dataframe for simulation data storage.
-    
-    Parameters:
-        n_out (int): Number of outputs recorded
-        times (np.ndarray): Simulation timesteps
-    '''        
-    return pd.DataFrame({
-        "time": times,
-        "a": np.full(n_out, np.nan),
-        "e": np.full(n_out, np.nan),
-        "P": np.full(n_out, np.nan),
-        "P_ratio": np.full(n_out, np.nan),
-        "l": np.full(n_out, np.nan),
-        "pomega": np.full(n_out, np.nan)
-    })
     
 def concatenate_data(stages):
     if type(stages) == dict:
@@ -136,67 +117,6 @@ def load_simulation_run(file_path):
         metadata = store[f"metadata"].to_dict()
     
     return result, metadata
-
-# === PLOTTING ===
-
-def plot_system(sim_data, t_units='kyr'):
-    '''
-    Takes dataframes for planets and plots a, e, and P ratios over time.
-    '''
-    times = sim_data[0]['b']['time']
-    planet_names = list(sim_data[0].keys())
-    num_planets = len(planet_names)
-    
-    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True)
-    fig.set_figwidth(7)
-    fig.set_figheight(7)
-
-    for p in range(num_planets):
-        # could also try plotting log
-        name = planet_names[p]
-        
-        if t_units == 'kyr':
-            ax1.plot(times/1000, sim_data[0][name]["a"], label=name)
-            ax2.plot(times/1000, sim_data[0][name]["e"], label=name)
-            plt.xlabel("Time (kyr)")
-    
-        if p != num_planets-1:
-            ax3.plot(times/1000, sim_data[0][name]["P_ratio"], label=f"{name}+{planet_names[p+1]}")
-            
-    ax1.set_ylabel("Semi-major Axis (AU)")
-    ax2.set_ylabel("Eccentricity")
-    ax3.set_ylabel("Period ratio")
-    
-    # ax1.set_ylim(0,0.45)
-    # ax2.set_ylim(-0.1,0.45)
-    ax3.set_ylim(1,2.2)
-    
-    # Plot ide location & width
-    try:
-        ax1.axhline(sim_data[1]["ide_position"], color='gray', ls='--', alpha=0.7)
-        ax1.axhline(sim_data[1]["ide_position"] - sim_data[1]["ide_width"], color='gray', ls='--', alpha=0.1)
-        ax1.axhline(sim_data[1]["ide_position"] + sim_data[1]["ide_width"], color='gray', ls='--', alpha=0.1)
-    except:
-        pass
-
-    ax1.legend(); ax2.legend(); ax3.legend()
-    ax1.grid(True); ax2.grid(True); ax3.grid(True)
-    
-    # Add horizontal lines for resonances
-    resonances_1 = [2/1, 3/2, 4/3, 5/4]
-    resonances_2 = [3/1, 5/3, 7/5]
-    resonances_3 = [4/1, 5/2, 7/4, 8/5]
-    for r in resonances_1:
-        ax3.axhline(r, color='gray', ls='--', alpha=0.7)
-    for r in resonances_2:
-        ax3.axhline(r, color='blue', ls='--', alpha=0.5)
-    # for r in resonances_3:
-    #     ax3.axhline(r, color='red', ls='--', alpha=0.5)
-
-    fig.subplots_adjust(hspace=0)
-
-    plt.suptitle("Orbital Evolution")
-    plt.tight_layout(); plt.show()
 
 # === PARAMETER GENERATION ===
 
@@ -302,145 +222,173 @@ def generate_params(planet_names, rng):
                                     
     return m_vals, r_vals, m_star, r_star, initial_P_ratios
 
-def get_taus(planets):
-    n = len(planets)
-    # Negative indicates damping
-    return np.full(n, -10000), np.full(n, -100) # tau_a, tau_e
+# From Izidoro 2014
+def get_tau(rock, rock_type):
+    '''Calculates damping timescales given parameters for one rock.
+    Based on Izidoro 2014.
+    Note that only planets and planetesimals should feel migration
+    Negative tau indicates damping for modify_orbits_forces.
+    '''
+    if rock_type == 'planet':
+        return -10000, -10000, -10000
+    
+    elif rock_type == 'embryo':
+        m_p = rock.m
+        r = rock.d # correct?
+        a_p = rock.a
+        e = rock.e
+        inc = rock.inc
+        Omega_k = 1/rock.P # Keplerian orbital frequency
+            
+        alpha = 1.5
+        
+        Sigma_1g = 3400 # g/cm^-2
+        Sigma_g = Sigma_1g * r**(-3/2)
+        
+        h1 = 0.047
+        h = h1 * r**1.25
+        
+        t_m = (2/(2.7+1.1*alpha)) * (1/m_p) * (1/(Sigma_g*a_p**2)) * (h/r)**2 * ((1+(e*r/(1.3*h)**5)) / (1-(e*r/(1.1*h)**4))) / Omega_k
+        t_wave = (1/m_p) * (1/(Sigma_g*a_p**2)) * (h/r)**4 / Omega_k
+        t_e = (t_wave/0.780) * (1 - 0.14*(e/(h/r)**2 + 0.06*(e/(h/r))**3) + 0.18*(e/(h/r))*(inc/(h/r))**2)
+        t_i = (t_wave/0.544) * (1 - 0.3*(inc/(h/r)**2 + 0.24*(inc/(h/r))**3) + 0.14*(e/(h/r))**2*(inc/(h/r)))
+            
+        return -100*t_m, -100*t_e, -100*t_i # Negative so damping
 
 # === HUANG IDE MODEL ===
 
-def f_functions(r, r_c, Delta, A_a, A_e):
-    # Piecewise functions f_a and f_e
-    conditions = [
-        r < r_c - Delta,
-        (r_c - Delta <= r) & (r < r_c),
-        (r_c <= r) & (r < r_c + Delta + 1 / A_a),
-        r >= r_c + Delta + 1 / A_a
-    ]
+# def f_functions(r, r_c, Delta, A_a, A_e):
+#     # Piecewise functions f_a and f_e
+#     conditions = [
+#         r < r_c - Delta,
+#         (r_c - Delta <= r) & (r < r_c),
+#         (r_c <= r) & (r < r_c + Delta + 1 / A_a),
+#         r >= r_c + Delta + 1 / A_a
+#     ]
 
-    f_a = [
-        0,          
-        A_a * (r_c - Delta - r) / Delta,
-        (r-r_c)* (A_a + 1) / (Delta + 1/A_a) - (A_a), # modified to make it continuous, paper might be wrong
-        1
-    ]
+#     f_a = [
+#         0,          
+#         A_a * (r_c - Delta - r) / Delta,
+#         (r-r_c)* (A_a + 1) / (Delta + 1/A_a) - (A_a), # modified to make it continuous, paper might be wrong
+#         1
+#     ]
 
-    f_e = [
-        0,          
-        A_e * (r - r_c + Delta) / Delta,
-        (A_e - 1) * (r_c + Delta + 1 / A_a - r) / (Delta + 1 / A_a) + 1, 
-        1
-    ]
+#     f_e = [
+#         0,          
+#         A_e * (r - r_c + Delta) / Delta,
+#         (A_e - 1) * (r_c + Delta + 1 / A_a - r) / (Delta + 1 / A_a) + 1, 
+#         1
+#     ]
 
-    f_a_vals = np.select(conditions, f_a, default=np.nan)
-    f_e_vals = np.select(conditions, f_e, default=np.nan)
-    return f_a_vals, f_e_vals
+#     f_a_vals = np.select(conditions, f_a, default=np.nan)
+#     f_e_vals = np.select(conditions, f_e, default=np.nan)
+#     return f_a_vals, f_e_vals
 
-def get_taus_huang(m_vals, r_vals, m_star, current_a_vals, tau_a_earth, r_earth, q_earth, q_vals, Q_sim, C_e):
-    '''
-    Computes damping timescales based on current semimajor axis values.
+# def get_taus_huang(m_vals, r_vals, m_star, current_a_vals, tau_a_earth, r_earth, q_earth, q_vals, Q_sim, C_e):
+#     '''
+#     Computes damping timescales based on current semimajor axis values.
     
-    Parameters:
-        current_a_vals: 1D NumPy array of current semimajor axis values.
+#     Parameters:
+#         current_a_vals: 1D NumPy array of current semimajor axis values.
     
-    Returns:
-        tau_a: semimajor axis damping timescale.
-        tau_e: eccentricity damping timescale.
-    '''
-    f_a_vals, f_e_vals = f_functions(current_a_vals)
-    tau_a = -tau_a_earth * (q_earth / q_vals) / f_a_vals # negative so damping.
-    tau_e_disk = C_e * tau_a * f_a_vals / f_e_vals # I removed a h^2 here
-    tau_e_star = 7.63e5 * Q_sim * (m_vals/m_earth) * (1/m_star)**1.5 * (r_earth/r_vals)** 5 * (current_a_vals/0.05)**6.5
-    tau_e = (tau_e_disk * tau_e_star) / (tau_e_disk + tau_e_star) # combining the two based on Eqs. 4 and 13
-    return tau_a, tau_e
+#     Returns:
+#         tau_a: semimajor axis damping timescale.
+#         tau_e: eccentricity damping timescale.
+#     '''
+#     f_a_vals, f_e_vals = f_functions(current_a_vals)
+#     tau_a = -tau_a_earth * (q_earth / q_vals) / f_a_vals # negative so damping.
+#     tau_e_disk = C_e * tau_a * f_a_vals / f_e_vals # I removed a h^2 here
+#     tau_e_star = 7.63e5 * Q_sim * (m_vals/m_earth) * (1/m_star)**1.5 * (r_earth/r_vals)** 5 * (current_a_vals/0.05)**6.5
+#     tau_e = (tau_e_disk * tau_e_star) / (tau_e_disk + tau_e_star) # combining the two based on Eqs. 4 and 13
+#     return tau_a, tau_e
 
-def simulate_trappist1_huang(m_vals, r_vals, m_star, r_star, initial_P_ratios, Sigma_1au, K_factor, planet_names, sim_id, file_path, integrator="whfast", test=False):
-    '''
-    Given initial parameters. planet_names, sim_id, file_path, and integrator,
-    simulates the TRAPPIST-1 system, saves the data, and returns list depending 
-    on the outcome. 
-    '''
-    # Create the simulation
-    sim = rebound.Simulation()
-    sim.units = ('AU', 'yr', 'Msun')
-    sim.integrator = integrator
+# def simulate_trappist1_huang(m_vals, r_vals, m_star, r_star, initial_P_ratios, Sigma_1au, K_factor, planet_names, sim_id, file_path, integrator="whfast", test=False):
+#     '''
+#     Given initial parameters. planet_names, sim_id, file_path, and integrator,
+#     simulates the TRAPPIST-1 system, saves the data, and returns list depending 
+#     on the outcome. 
+#     '''
+#     # Create the simulation
+#     sim = rebound.Simulation()
+#     sim.units = ('AU', 'yr', 'Msun')
+#     sim.integrator = integrator
 
-    # Add the star
-    sim.add(m=m_star, r=r_star)
+#     # Add the star
+#     sim.add(m=m_star, r=r_star)
     
-    q_vals = m_vals / m_star
-    q_earth =  3.003e-6 / m_star
+#     q_vals = m_vals / m_star
+#     q_earth =  3.003e-6 / m_star
 
-    num_planets = len(m_vals)
+#     num_planets = len(m_vals)
     
-    # Define initial eccentricities (e)
-    e_vals = np.zeros_like(m_vals)
+#     # Define initial eccentricities (e)
+#     e_vals = np.zeros_like(m_vals)
 
-    # Draw initial mean anomalies (M)
-    M_vals = np.zeros_like(m_vals)
+#     # Draw initial mean anomalies (M)
+#     M_vals = np.zeros_like(m_vals)
 
-    # Initial semimajor axis of b
-    a_b = 0.05
+#     # Initial semimajor axis of b
+#     a_b = 0.05
 
-    # Define initial periods (P) and semimajor axes (a)
-    P_vals = [(a_b**3 / m_star)**(1/2)]
-    for i in range(num_planets-1):
-        P_vals = np.append(P_vals, P_vals[i] * initial_P_ratios[i])
+#     # Define initial periods (P) and semimajor axes (a)
+#     P_vals = [(a_b**3 / m_star)**(1/2)]
+#     for i in range(num_planets-1):
+#         P_vals = np.append(P_vals, P_vals[i] * initial_P_ratios[i])
         
-    a_vals = (P_vals**2 * m_star)**(1/3)
+#     a_vals = (P_vals**2 * m_star)**(1/3)
 
-    # Add planets 
-    for i in range(num_planets):
-        sim.add(m=m_vals[i], r=r_vals[i], a=a_vals[i], e=e_vals[i], M=M_vals[i])
+#     # Add planets 
+#     for i in range(num_planets):
+#         sim.add(m=m_vals[i], r=r_vals[i], a=a_vals[i], e=e_vals[i], M=M_vals[i])
 
-    # Move to center of momentum
-    sim.move_to_com()
-    ps = sim.particles
-    planets = ps[1:] # for easier indexing
+#     # Move to center of momentum
+#     sim.move_to_com()
+#     ps = sim.particles
+#     planets = ps[1:] # for easier indexing
     
-    initial_tau_a_vals = get_taus(a_vals, m_vals, m_star)[0]
-    # print(f"tau_a values: {np.round(initial_tau_a_vals)} yr \n")
+#     initial_tau_a_vals = get_taus(a_vals, m_vals, m_star)[0]
+#     print(f"tau_a values: {np.round(initial_tau_a_vals)} yr \n")
     
-    years = np.clip(2*initial_tau_a_vals[-1], 30000, 10000000) # Integrate for tau_a of the last planet (Keller does 3*tau_a), with 
-                                                               # lower limit 30 kyr and upper limit 10 Myr
-    # print(f"Integrating {years/1000:.4} kyrs \n")
+#     years = np.clip(2*initial_tau_a_vals[-1], 30000, 10000000) # Integrate for tau_a of the last planet (Keller does 3*tau_a), with 
+#                                                                # lower limit 30 kyr and upper limit 10 Myr
+#     # print(f"Integrating {years/1000:.4} kyrs \n")
     
-    if test: # Short simulation for testing purposes
-        years = 100
+#     if test: # Short simulation for testing purposes
+#         years = 100
     
-    # Code using modify_orbits_forces
-    rebx = reboundx.Extras(sim)
+#     # Code using modify_orbits_forces
+#     rebx = reboundx.Extras(sim)
 
-    # Planet-disk interaction
-    mof = rebx.load_force("modify_orbits_forces")
-    rebx.add_force(mof)
+#     # Planet-disk interaction
+#     mof = rebx.load_force("modify_orbits_forces")
+#     rebx.add_force(mof)
 
     
-    # Huang & Ormel (2022) used positions r_c in [0.013 - 0.030 au] with width 
-    # Delta = 2hr_c = 0.06 r_c. In particular, r_c = 0.023 worked best.
+#     # Huang & Ormel (2022) used positions r_c in [0.013 - 0.030 au] with width 
+#     # Delta = 2hr_c = 0.06 r_c. In particular, r_c = 0.023 worked best.
     
-    data, complete_sim = integrate_sim(sim, num_planets, planets, planet_names, m_vals, m_star, years, start_time=0)
+#     data, complete_sim = integrate_sim(sim, num_planets, planets, planet_names, m_vals, m_star, years, start_time=0)
     
-    # Save data
-    save_simulation_run(data, sim_id, file_path, sim_metadata={
-                        "num_planets": num_planets, 
-                        "planet_names": planet_names,
-                        "m_vals": m_vals,
-                        "r_vals": r_vals,
-                        "m_star": m_star,
-                        "r_star": r_star,
-                        "initial_P_ratios": initial_P_ratios,
-                        "Sigma_1au": Sigma_1au,
-                        "K_factor": K_factor,
-                        "integrator": integrator
-                        })
+#     # Save data
+#     save_simulation_run(data, sim_id, file_path, sim_metadata={
+#                         "num_planets": num_planets, 
+#                         "planet_names": planet_names,
+#                         "m_vals": m_vals,
+#                         "r_vals": r_vals,
+#                         "m_star": m_star,
+#                         "r_star": r_star,
+#                         "initial_P_ratios": initial_P_ratios,
+#                         "Sigma_1au": Sigma_1au,
+#                         "K_factor": K_factor,
+#                         "integrator": integrator
+#                         })
 
-    saved_sim = load_simulation_run(file_path)
-    outcome = mmr_id.res_chain_outcome(saved_sim)
-    if complete_sim:
-        return outcome
-    else:
-        return np.full_like(outcome, -1)
+#     saved_sim = load_simulation_run(file_path)
+#     outcome = mmr_id.res_chain_outcome(saved_sim)
+#     if complete_sim:
+#         return outcome
+#     else:
+#         return np.full_like(outcome, -1)
 
 # === RUNNING THE SIM ===
 
@@ -448,71 +396,105 @@ def get_hill_radius(m1, a1, m2, a2, M_star):
     '''Returns mutual hill radius of two planets.'''
     return ((m1+m2)/(3*M_star))**1/3 * (a1+a2)/2
 
-def integrate_sim(sim, planets, planet_names, parameters, years, start_time=0):
+def integrate_sim(sim, rocks, rock_names, parameters, years, start_time=0):
     '''Integrates a REBOUND simulation over a given number of years and
     saves the new state of the sim.
     
     Parameters:
         sim (rebound.Simulation): Simulation object to integrate.
-        planets (list[rebound.Particles]): List containing planets in the sim.
-        planet_names (list[str]): List containing names of the planets.
+        rocks (list[rebound.Particles]): List containing rocks (non-stellar particles) in the sim.
+        rock_names (list[str]): List containing names of the rocks (non-stellar particles).
         parameters (dict): Dictionary containing planet and star parameters.
         years (float): Number of years to integrate.
         start_time (float, optional): Start time of the integration, defaults to 0.
         
     Returns:
         tuple:
-            * stage_data (pd.Dataframe): Simulation data.
+            * stage_data_df (pd.Dataframe): Simulation data.
             * completed_sim (bool): Whether the integration was fully compelted.
     '''
-    m_vals, m_star, r_vals = parameters["m_vals"], parameters["m_star"], parameters["r_vals"]
-    num_planets = len(planet_names)
+    m_vals, m_star, r_vals, r_star = parameters["m_vals"], parameters["m_star"], parameters["r_vals"], parameters["r_star"]
+    num_pl, num_em, num_ptsml = parameters["num_pl"], parameters["num_em"], parameters["num_ptsml"]
+    num_rocks = len(rock_names)
     
     # Set up times for integration & data collection
     n_out = 2000 # number of data points to collect
     stage_times = np.linspace(start_time, years+start_time, n_out, endpoint=False)  # all times to integrate over
-    stage_data = {name : data_df(n_out, stage_times) for name in planet_names[:num_planets]}
+    stage_data = {}
+
+    for name in rock_names[:num_rocks]:
+        stage_data[name] = {
+            "time": stage_times.copy(),
+            "a": np.full(n_out, np.nan),
+            "e": np.full(n_out, np.nan),
+            "P": np.full(n_out, np.nan),
+            "P_ratio": np.full(n_out, np.nan),
+            "l": np.full(n_out, np.nan),
+            "pomega": np.full(n_out, np.nan),
+            "tau_a": np.full(n_out, np.nan),
+            "tau_e": np.full(n_out, np.nan),
+            "tau_i": np.full(n_out, np.nan),
+        }
+        
     sim.random_seed = 16 # for reproducibility
 
     completed_sim = True
 
     for i, t in enumerate(stage_times): 
-        sim.dt = planets[0].P / 20 # 1/20 of planet b
-        sim.integrate(t)
         
-        a_vals = np.array([p.a for p in planets])
-        tau_a, tau_e = get_taus(planets)
-        
-        for p in range(num_planets):
-            # Update damping timescales
-            planets[p].params["tau_a"] = tau_a[p]
-            planets[p].params["tau_e"] = tau_e[p]
-            
-            # save data
-            name = planet_names[p]
-            stage_data[name].loc[i, "a"] = planets[p].a
-            stage_data[name].loc[i, "e"] = planets[p].e
-            stage_data[name].loc[i, "l"] = planets[p].l
-            stage_data[name].loc[i, "pomega"] = planets[p].pomega   
+        for j, name in enumerate(rock_names):
 
-            if p != num_planets-1: # don't record period ratio for last planet
-                stage_data[name].loc[i, "P_ratio"] = planets[p+1].P / planets[p].P
-
-                # Stop sim if separation within 5*r_hill
-                r_hill = get_hill_radius(m_vals[p], a_vals[p], m_vals[p+1], a_vals[p+1], m_star)
-                if np.abs(a_vals[p] - a_vals[p+1]) < 5*r_hill:
-                    completed_sim = False
-                    break
-                    
-                # Also stop sim if planets crossed each other(P_ratio < 1)
-                if planets[p+1].P / planets[p].P < 1:
-                    completed_sim = False
-                    break
+            # Update damping timescales for planets and embryos only
+            try:
+                rock = sim.particles[name]
                 
-            # Stop sim if planet goes into star
-            if planets[p].a < 0.001:
-                completed_sim = False
-                break
+                if 'planet' in name:
+                    tau_a, tau_e, tau_i = get_tau(rock, "planet")
+                elif 'embryo' in name:
+                    tau_a, tau_e, tau_i = get_tau(rock, "embryo")
+                
+                if 'planet' in name or 'embryo' in name:
+                    rock.params["tau_a"] = tau_a
+                    rock.params["tau_e"] = tau_e
+                    rock.params["tau_inc"] = tau_i
+            
+                    stage_data[name]["tau_a"][i] = tau_a
+                    stage_data[name]["tau_e"][i] = tau_e
+                    stage_data[name]["tau_i"][i] = tau_i
+            
+                # Save data
+                stage_data[name]["a"][i] = rocks[j].a
+                stage_data[name]["e"][i] = rocks[j].e
+                stage_data[name]["l"][i] = rocks[j].l
+                stage_data[name]["pomega"][i] = rocks[j].pomega
+                stage_data[name]["P"][i] = rocks[j].P  
+
+                if j < num_pl-1: # don't record period ratio for last planet
+                    stage_data[name]["P_ratio"][i] = rocks[j+1].P / rock.P # index might be wrong if planet is gone
+                
+                # Remove particle if planet goes into star
+                if rock.a < 0.1 or rock.a > 100:
+                    sim.remove(hash=name)
+                    print(f"{name} removed")
+            
+            except:
+                pass
+
+            # === CHECKS FOR CLOSE ENCOUNTERS ===
+            #     # Stop sim if separation within 5*r_hill
+            #     r_hill = get_hill_radius(m_vals[j], a_vals[j], m_vals[j+1], a_vals[j+1], m_star)
+            #     if np.abs(a_vals[j] - a_vals[j+1]) < 5*r_hill:
+            #         completed_sim = False
+            #         break
+                    
+            #     # Also stop sim if planets crossed each other(P_ratio < 1)
+            #     if planets[j+1].P / planets[j].P < 1:
+            #         completed_sim = False
+            #         break
+                
+        # print(f"Step {i} of {len(stage_times)}")
+        sim.dt = rocks[0].P / 20 # 1/20 of planet b
+        sim.integrate(t)    
         
         # Prevent stop in data collection       
         if np.isnan(stage_data['b']["a"][i]):
@@ -523,20 +505,26 @@ def integrate_sim(sim, planets, planet_names, parameters, years, start_time=0):
         if not completed_sim:
             break
     
-    return stage_data, completed_sim
+    # Convert to df
+    stage_data_df = {
+        name: pd.DataFrame(data)
+        for name, data in stage_data.items()
+    }
+    
+    return stage_data_df, completed_sim
 
-def simulate_system(sim_id, file_path, planet_names, parameters, years=1000, integrator="whfast"):
+def simulate_system(sim_id, file_path, rock_names, parameters, years=1000, integrator="whfast"):
     '''Creates a REBOUND simulation, runs the simulation, and saves it to disk.
     
     Parameters:
         sim_id (int): Simulation ID.
         file_path (str): Name of the file path for data storage.
-        planet_names (list[str]): Names of the planets.    
+        rock_names (list[str]): Names of the rocks (non-stellar particles).    
         parameters (dict): Dictionary containing planet and star parameters.
         years (float, optional, defaults to 1000): Number of years to integrate the simulation.
         integrator (str, optional, defaults to whfast): Name of the REBOUND integrator to use.
     '''
-    m_vals, m_star, r_vals, r_star, P_vals = parameters["m_vals"], parameters["m_star"], parameters["r_vals"], parameters["r_star"], parameters["P_vals"]
+    m_vals, m_star, r_vals, r_star, a_vals = parameters["m_vals"], parameters["m_star"], parameters["r_vals"], parameters["r_star"], parameters["a_vals"]
     
     # Create the simulation
     sim = rebound.Simulation()
@@ -544,36 +532,41 @@ def simulate_system(sim_id, file_path, planet_names, parameters, years=1000, int
     sim.integrator = integrator
     
     # Add the star
-    sim.add(m=m_star, r=r_star)
-    num_planets = len(planet_names)
+    sim.add(m=m_star, r=r_star, hash='star')
+    num_rocks = len(rock_names)
         
     # Add planets 
-    for i in range(num_planets):
-        sim.add(m=m_vals[i], r=r_vals[i], P=P_vals[i])
+    for i in range(num_rocks):
+        sim.add(m=m_vals[i], r=r_vals[i], a=a_vals[i], hash=rock_names[i])
 
     # Move to center of momentum
     sim.move_to_com()
     ps = sim.particles
-    planets = ps[1:] # for easier indexing; ps[0] = planet b
+    rocks = ps[1:] # for easier indexing; ps[0] = planet b
 
     rebx = reboundx.Extras(sim)
     mof = rebx.load_force("modify_orbits_forces")
     rebx.add_force(mof)
 
-    years = -get_taus(planets)[0][-1]*3 # 3*tau_a of the last planet
-
     # Failsafe
     if years < 1000:
         years = 1000
+        print("Years clipped to 1000")
         
     print(f"Sim {sim_id:<2d} | {years:.3g} years", flush=True)
-    data, complete_sim = integrate_sim(sim, planets, planet_names, parameters, years, start_time=0)
+    data, complete_sim = integrate_sim(sim, rocks, rock_names, parameters, years, start_time=0)
     print(f"Sim complete? {complete_sim}")
     
     # Save data
-    save_simulation_run(data, sim_id, file_path, sim_metadata={"num_planets": num_planets, "planet_names": planet_names} | parameters)
-        
-planet_names = ['b', 'c', 'd', 'e']
+    save_simulation_run(data, sim_id, file_path, sim_metadata={"num_rocks": num_rocks, "rock_names": rock_names} | parameters)
+ 
+# === SIM SETUP ===       
+
+num_pl = 3
+num_em = 1
+num_ptsml = 2
+
+rock_names = ['b', 'c', 'd'] + [f"embryo{i}" for i in range(num_em)] + [f"ptsml{i}" for i in range(num_ptsml)]
 
 dataset_id = 0
 n_sims = 1
@@ -589,24 +582,30 @@ def run_sim(sim_id):
     # Get random param values
     # TRAPPIST-1: m_vals, r_vals, m_star, r_star, initial_P_ratios = generate_params(planet_names, rng)
     # ALTERNATIVELY: Specify values below: 
-    # Kepler-223 Analog
-    m_vals = np.array([7.4, 5.1, 8.0, 4.8]) * m_earth
-    r_vals = np.array([3, 3.4, 5.2, 4.6]) * r_earth
-    m_star = 1.04
-    r_star = 1.52
-    P_vals = np.array([10, 20, 30, 40]) / 365 # Initial P_vals
+    
+    m_vals = np.array([3, 3, 3] + [0.05]*num_em + [0]*num_ptsml) * m_earth
+    r_vals = np.array([3, 3, 3] + [0.1]*(num_em+num_ptsml)) * r_earth
+    m_star = 1.
+    r_star = 1.
+    a_vals = np.concatenate(([3, 4.5, 6], np.arange(1, 3, 0.2), np.arange(1.05, 3.05, 0.1))) # Initial a_vals
         
     parameters = {"m_vals": m_vals,
                   "m_star": m_star,
                   "r_vals": r_vals,
                   "r_star": r_star,
-                  "P_vals": P_vals,
+                  "a_vals": a_vals,
+                  "num_pl": num_pl,
+                  "num_em": num_em,
+                  "num_ptsml": num_ptsml
                 }
     
     # Sim integration!
-    outcome = simulate_system(sim_id, file_path, planet_names, parameters, integrator="whfast")
+    years = 3000
+    outcome = simulate_system(sim_id, file_path, rock_names, parameters, years=years, integrator="whfast")
     return (sim_id, m_vals, r_vals, m_star, r_star)
     
+# === MULTIPROCESSING ===    
+
 if __name__ == "__main__":
     dataset_dir = Path.cwd().parent / "sim_results" / f"dataset{dataset_id}"
     
