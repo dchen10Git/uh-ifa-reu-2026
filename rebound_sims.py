@@ -223,18 +223,19 @@ def generate_params(planet_names, rng):
     return m_vals, r_vals, m_star, r_star, initial_P_ratios
 
 # From Izidoro 2014
-def get_tau(rock, rock_type):
+def get_tau(rock, rock_name):
     '''Calculates damping timescales given parameters for one rock.
     Based on Izidoro 2014.
     Note that only planets and planetesimals should feel migration
     Negative tau indicates damping for modify_orbits_forces.
     '''
-    if rock_type == 'planet':
+    
+    if 'planet' in rock_name:
         tau_a_earth = 2e5
         tau_a = tau_a_earth * (m_earth / rock.m)
         return -tau_a, -10000, -10000
     
-    elif rock_type == 'embryo':
+    elif 'embryo' in rock_name:
         m_p = rock.m
         r = rock.d # distance to the star
         a_p = rock.a
@@ -257,6 +258,22 @@ def get_tau(rock, rock_type):
         t_i = (t_wave/0.544) * (1 - 0.3*(inc/(h/r)**2 + 0.24*(inc/(h/r))**3) + 0.14*(e/(h/r))**2*(inc/(h/r)))
             
         return -t_m, -t_e, -t_i # Negative so damping
+    
+    elif 'ptsml' in rock_name:
+        r = rock.d # distance to the star
+        
+        h1 = 0.047
+        h = h1 * r**1.25
+        R_p = 100 * (1e5 / AU) # Converted to AU from km
+        rho_p = 0.0033 / (4/3 * np.pi * R_p**3) # Ptsml density (mass / vol)
+        C_d = 0.44 # for km-sized ptsmls and small Mach number (see Brasser 2007) 
+        rho_g = 2.9e-9 * r**(-11/4) * AU**3 / Msun # Converted to Msun/AU^2 from g/cm^3
+        eta = (11/16)*((h/r)**2)
+        v_K = np.sqrt(G/r) # M star in denominator inside sqrt is omitted
+        v_rel = (eta/2)*v_K
+        
+        t_m = (8*rho_p*R_p) / (3*C_d*rho_g*v_rel)
+        return -t_m, -1e32, -1e32
 
 # === HUANG IDE MODEL ===
 
@@ -447,35 +464,24 @@ def integrate_sim(sim, rocks, rock_names, parameters, years, start_time=0):
         
         for j, name in enumerate(rock_names):
 
-            # Update damping timescales for planets and embryos only
-            try:
+            try: # Prevent error for removed particles
                 rock = sim.particles[name]
                 
-                if 'planet' in name:
-                    tau_a, tau_e, tau_i = get_tau(rock, "planet")
-                    rock.params["tau_a"] = tau_a
-                    rock.params["tau_e"] = tau_e
-                    rock.params["tau_inc"] = tau_i
-            
-                    stage_data[name]["tau_a"][i] = tau_a
-                    stage_data[name]["tau_e"][i] = tau_e
-                    stage_data[name]["tau_i"][i] = tau_i
-                elif 'embryo' in name:
-                    tau_a, tau_e, tau_i = get_tau(rock, "embryo")
-                    rock.params["tau_a"] = tau_a
-                    rock.params["tau_e"] = tau_e
-                    rock.params["tau_inc"] = tau_i
-            
-                    stage_data[name]["tau_a"][i] = tau_a
-                    stage_data[name]["tau_e"][i] = tau_e
-                    stage_data[name]["tau_i"][i] = tau_i                    
-            
+                tau_a, tau_e, tau_i = get_tau(rock, name)
+                rock.params["tau_a"] = tau_a
+                rock.params["tau_e"] = tau_e
+                rock.params["tau_inc"] = tau_i
+        
+                stage_data[name]["tau_a"][i] = tau_a
+                stage_data[name]["tau_e"][i] = tau_e
+                stage_data[name]["tau_i"][i] = tau_i
+                
                 # Save data
-                stage_data[name]["a"][i] = rocks[j].a
-                stage_data[name]["e"][i] = rocks[j].e
-                stage_data[name]["l"][i] = rocks[j].l
-                stage_data[name]["pomega"][i] = rocks[j].pomega
-                stage_data[name]["P"][i] = rocks[j].P  
+                stage_data[name]["a"][i] = rock.a
+                stage_data[name]["e"][i] = rock.e
+                stage_data[name]["l"][i] = rock.l
+                stage_data[name]["pomega"][i] = rock.pomega
+                stage_data[name]["P"][i] = rock.P  
 
                 if j < num_pl-1: # don't record period ratio for last planet
                     stage_data[name]["P_ratio"][i] = rocks[j+1].P / rock.P # index might be wrong if planet is gone
@@ -500,12 +506,12 @@ def integrate_sim(sim, rocks, rock_names, parameters, years, start_time=0):
             #         completed_sim = False
             #         break
                 
-        print(f"\rStep {i} of {len(stage_times)}")
+        print(f"Step {i} of {len(stage_times)}", end="\r", flush=True)
         sim.dt = rocks[0].P / 200 # 1/200 of planet b
         sim.integrate(t)    
         
-        # Prevent stop in data collection       
-        if np.isnan(stage_data['planet_b']["a"][i]):
+        # Stop sim if planet b is gone       
+        if np.isnan(stage_data['planet b']["a"][i]):
             completed_sim = False
             break
 
@@ -532,7 +538,7 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=1000, integ
         years (float, optional, defaults to 1000): Number of years to integrate the simulation.
         integrator (str, optional, defaults to whfast): Name of the REBOUND integrator to use.
     '''
-    m_vals, m_star, r_vals, r_star, a_vals = parameters["m_vals"], parameters["m_star"], parameters["r_vals"], parameters["r_star"], parameters["a_vals"]
+    m_vals, m_star, r_vals, r_star, a_vals, ide_position, ide_width = parameters["m_vals"], parameters["m_star"], parameters["r_vals"], parameters["r_star"], parameters["a_vals"], parameters["ide_position"], parameters["ide_width"]
     
     # Create the simulation
     sim = rebound.Simulation()
@@ -555,6 +561,9 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=1000, integ
     rebx = reboundx.Extras(sim)
     mof = rebx.load_force("modify_orbits_forces")
     rebx.add_force(mof)
+    
+    mof.params["ide_position"] = 0.5 # arbitrary values
+    mof.params["ide_width"] = 0.02
 
     # Failsafe
     if years < 1000:
@@ -571,10 +580,10 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=1000, integ
 # === SIM SETUP ===       
 
 num_pl = 3
-num_em = 10
-num_ptsml = 20
+num_em = 1
+num_ptsml = 1
 
-rock_names = ['planet_b', 'planet_c', 'planet_d'] + [f"embryo_{i}" for i in range(num_em)] + [f"ptsml_{i}" for i in range(num_ptsml)]
+rock_names = ['planet b', 'planet c', 'planet d'] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
 
 dataset_id = 0
 n_sims = 1
@@ -587,15 +596,17 @@ def run_sim(sim_id):
     base_dir = Path.cwd()
     file_path = base_dir.parent / "sim_results" / f"dataset{dataset_id}" / f"sim{sim_id}.h5"
     
-    # Get random param values
-    # TRAPPIST-1: m_vals, r_vals, m_star, r_star, initial_P_ratios = generate_params(planet_names, rng)
+    # TRAPPIST-1 params: m_vals, r_vals, m_star, r_star, initial_P_ratios = generate_params(planet_names, rng)
     # ALTERNATIVELY: Specify values below: 
     
+    # === PARAMETERS ===
     m_vals = np.array([4, 5, 6] + [0.01]*num_em + [0]*num_ptsml) * m_earth
     r_vals = np.array([3, 3, 3] + [0.1]*(num_em+num_ptsml)) * r_earth
     m_star = 1.
     r_star = 0.1
-    a_vals = np.concatenate(([4, 4.94, 6.11], np.arange(1, 3, 0.2), np.arange(1.05, 3.05, 0.1))) # Initial a_vals
+    a_vals = np.concatenate(([4, 4.94, 6.11], np.arange(1, 3, 2/num_em), np.arange(1.05, 3.05, 2/num_ptsml))) # Initial a_vals
+    ide_position = 0.5
+    ide_width = 0.02
         
     parameters = {"m_vals": m_vals,
                   "m_star": m_star,
@@ -604,11 +615,13 @@ def run_sim(sim_id):
                   "a_vals": a_vals,
                   "num_pl": num_pl,
                   "num_em": num_em,
-                  "num_ptsml": num_ptsml
+                  "num_ptsml": num_ptsml,
+                  "ide_position": ide_position,
+                  "ide_width": ide_width
                 }
     
     # Sim integration!
-    years = 80000
+    years = 100000
     outcome = simulate_system(sim_id, file_path, rock_names, parameters, years=years, integrator="trace")
     return (sim_id, m_vals, r_vals, m_star, r_star)
     
