@@ -225,23 +225,20 @@ def generate_params(planet_names, rng):
 # From Izidoro 2014
 def get_tau(rock, rock_name):
     '''Calculates damping timescales given parameters for one rock.
-    Based on Izidoro 2014.
-    Note that only planets and planetesimals should feel migration
+    Based on Izidoro 2014 and Brasser 2007.
+    Planets and embryos are affected by migration while planetesimals
+    are affected by gas drag.
     Negative tau indicates damping for modify_orbits_forces.
     '''
     
-    if 'planet' in rock_name:
-        tau_a_earth = 2e5
-        tau_a = tau_a_earth * (m_earth / rock.m)
-        return -tau_a, -10000, -10000
-    
-    elif 'embryo' in rock_name:
+    # Type I migration
+    if ('planet' in rock_name) or ('embryo' in rock_name):
         m_p = rock.m
         r = rock.d # distance to the star
         a_p = rock.a
         e = rock.e
         inc = rock.inc
-        Omega_k = 1/rock.P # Keplerian orbital frequency
+        Omega_k = 2*np.pi/rock.P # Keplerian orbital frequency
             
         alpha = 1.5
         
@@ -250,26 +247,27 @@ def get_tau(rock, rock_name):
         Sigma_g = Sigma_1g * r**(-3/2)
         
         h1 = 0.047
-        h = h1 * r**1.25
+        h = h1 * r**1.25 # scale height
         
-        t_m = (2/(2.7+1.1*alpha)) * (1/m_p) * (1/(Sigma_g*a_p**2)) * (h/r)**2 * ((1+(e*r/(1.3*h)**5)) / (1-(e*r/(1.1*h)**4))) / Omega_k
+        t_m = (2/(2.7+1.1*alpha)) * (1/m_p) * (1/(Sigma_g*a_p**2)) * (h/r)**2 * ((1 + (e*r/(1.3*h))**5) / (1 - (e*r/(1.1*h))**4)) / Omega_k
         t_wave = (1/m_p) * (1/(Sigma_g*a_p**2)) * (h/r)**4 / Omega_k
-        t_e = (t_wave/0.780) * (1 - 0.14*(e/(h/r)**2 + 0.06*(e/(h/r))**3) + 0.18*(e/(h/r))*(inc/(h/r))**2)
-        t_i = (t_wave/0.544) * (1 - 0.3*(inc/(h/r)**2 + 0.24*(inc/(h/r))**3) + 0.14*(e/(h/r))**2*(inc/(h/r)))
+        t_e = (t_wave/0.780) * (1 - 0.14*(e/(h/r))**2 + 0.06 * (e/(h/r))**3 + 0.18 * (e/(h/r)) * (inc/(h/r))**2)
+        t_i = (t_wave/0.544) * (1 - 0.3*(inc/(h/r))**2 + 0.24 * (inc/(h/r))**3 + 0.14 * (e/(h/r))**2 * (inc/(h/r)))
             
         return -t_m, -t_e, -t_i # Negative so damping
     
     elif 'ptsml' in rock_name:
         r = rock.d # distance to the star
+        Omega_k = 2*np.pi/rock.P # Keplerian orbital frequency
         
         h1 = 0.047
         h = h1 * r**1.25
-        R_p = 100 * (1e5 / AU) # Converted to AU from km
-        rho_p = 0.0033 / (4/3 * np.pi * R_p**3) # Ptsml density (mass / vol)
+        R_p = 1000 * (1e5 / AU) # Converted to AU from km
+        rho_p = 0.0033 * m_earth / (4/3 * np.pi * R_p**3) # Ptsml density (mass / vol)
         C_d = 0.44 # for km-sized ptsmls and small Mach number (see Brasser 2007) 
-        rho_g = 2.9e-9 * r**(-11/4) * AU**3 / Msun # Converted to Msun/AU^2 from g/cm^3
+        rho_g = 2.9e-9 * r**(-11/4) * AU**3 / Msun # Converted to Msun/AU^3 from g/cm^3
         eta = (11/16)*((h/r)**2)
-        v_K = np.sqrt(G/r) # M star in denominator inside sqrt is omitted
+        v_K = r*Omega_k
         v_rel = (eta/2)*v_K
         
         t_m = (8*rho_p*R_p) / (3*C_d*rho_g*v_rel)
@@ -430,7 +428,7 @@ def integrate_sim(sim, rocks, rock_names, parameters, years, start_time=0):
         
     Returns:
         tuple:
-            * stage_data_df (pd.Dataframe): Simulation data.
+            * stage_data (pd.Dataframe): Simulation data.
             * completed_sim (bool): Whether the integration was fully compelted.
     '''
     m_vals, m_star, r_vals, r_star = parameters["m_vals"], parameters["m_star"], parameters["r_vals"], parameters["r_star"]
@@ -440,21 +438,21 @@ def integrate_sim(sim, rocks, rock_names, parameters, years, start_time=0):
     # Set up times for integration & data collection
     n_out = 2000 # number of data points to collect
     stage_times = np.linspace(start_time, years+start_time, n_out, endpoint=False)  # all times to integrate over
-    stage_data = {}
+        
+    hist = {
+        "time": stage_times,
 
-    for name in rock_names[:num_rocks]:
-        stage_data[name] = {
-            "time": stage_times.copy(),
-            "a": np.full(n_out, np.nan),
-            "e": np.full(n_out, np.nan),
-            "P": np.full(n_out, np.nan),
-            "P_ratio": np.full(n_out, np.nan),
-            "l": np.full(n_out, np.nan),
-            "pomega": np.full(n_out, np.nan),
-            "tau_a": np.full(n_out, np.nan),
-            "tau_e": np.full(n_out, np.nan),
-            "tau_i": np.full(n_out, np.nan),
-        }
+        "a": np.full((n_out, num_rocks), np.nan),
+        "e": np.full((n_out, num_rocks), np.nan),
+        "P": np.full((n_out, num_rocks), np.nan),
+        "P_ratio": np.full((n_out, num_rocks), np.nan),
+        "l": np.full((n_out, num_rocks), np.nan),
+        "pomega": np.full((n_out, num_rocks), np.nan),
+
+        "tau_a": np.full((n_out, num_rocks), np.nan),
+        "tau_e": np.full((n_out, num_rocks), np.nan),
+        "tau_i": np.full((n_out, num_rocks), np.nan),
+    }
         
     sim.random_seed = 16 # for reproducibility
 
@@ -472,22 +470,22 @@ def integrate_sim(sim, rocks, rock_names, parameters, years, start_time=0):
                 rock.params["tau_e"] = tau_e
                 rock.params["tau_inc"] = tau_i
         
-                stage_data[name]["tau_a"][i] = tau_a
-                stage_data[name]["tau_e"][i] = tau_e
-                stage_data[name]["tau_i"][i] = tau_i
-                
+                hist["tau_a"][i, j] = tau_a
+                hist["tau_e"][i, j] = tau_e
+                hist["tau_i"][i, j] = tau_i
+                                
                 # Save data
-                stage_data[name]["a"][i] = rock.a
-                stage_data[name]["e"][i] = rock.e
-                stage_data[name]["l"][i] = rock.l
-                stage_data[name]["pomega"][i] = rock.pomega
-                stage_data[name]["P"][i] = rock.P  
+                hist["a"][i, j] = rock.a
+                hist["e"][i, j] = rock.e
+                hist["P"][i, j] = rock.P
+                hist["l"][i, j] = rock.l
+                hist["pomega"][i, j] = rock.pomega
 
                 if j < num_pl-1: # don't record period ratio for last planet
-                    stage_data[name]["P_ratio"][i] = rocks[j+1].P / rock.P # index might be wrong if planet is gone
+                    hist["P_ratio"][i, j] = rocks[j+1].P / rock.P # index might be wrong if planet is gone
                 
                 # Remove particle if planet goes into star
-                if rock.a < 0.1 or rock.a > 100:
+                if rock.d < 0.1 or rock.d > 100:
                     sim.remove(hash=name)
                     print(f"{name} removed")
             
@@ -511,7 +509,7 @@ def integrate_sim(sim, rocks, rock_names, parameters, years, start_time=0):
         sim.integrate(t)    
         
         # Stop sim if planet b is gone       
-        if np.isnan(stage_data['planet b']["a"][i]):
+        if np.isnan(hist["a"][i, 0]):
             completed_sim = False
             break
 
@@ -520,12 +518,22 @@ def integrate_sim(sim, rocks, rock_names, parameters, years, start_time=0):
             break
     
     # Convert to df
-    stage_data_df = {
-        name: pd.DataFrame(data)
-        for name, data in stage_data.items()
-    }
+    stage_data = {}
+    for j, name in enumerate(rock_names):
+        stage_data[name] = pd.DataFrame({
+            "time": hist["time"],
+            "a": hist["a"][:, j],
+            "e": hist["e"][:, j],
+            "P": hist["P"][:, j],
+            "P_ratio": hist["P_ratio"][:, j],
+            "l": hist["l"][:, j],
+            "pomega": hist["pomega"][:, j],
+            "tau_a": hist["tau_a"][:, j],
+            "tau_e": hist["tau_e"][:, j],
+            "tau_i": hist["tau_i"][:, j],
+        })
     
-    return stage_data_df, completed_sim
+    return stage_data, completed_sim
 
 def simulate_system(sim_id, file_path, rock_names, parameters, years=1000, integrator="whfast"):
     '''Creates a REBOUND simulation, runs the simulation, and saves it to disk.
@@ -580,8 +588,8 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=1000, integ
 # === SIM SETUP ===       
 
 num_pl = 3
-num_em = 1
-num_ptsml = 1
+num_em = 30
+num_ptsml = 60
 
 rock_names = ['planet b', 'planet c', 'planet d'] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
 
@@ -600,11 +608,11 @@ def run_sim(sim_id):
     # ALTERNATIVELY: Specify values below: 
     
     # === PARAMETERS ===
-    m_vals = np.array([4, 5, 6] + [0.01]*num_em + [0]*num_ptsml) * m_earth
+    m_vals = np.array([3, 5, 7] + [0.01]*num_em + [0]*num_ptsml) * m_earth
     r_vals = np.array([3, 3, 3] + [0.1]*(num_em+num_ptsml)) * r_earth
     m_star = 1.
     r_star = 0.1
-    a_vals = np.concatenate(([4, 4.94, 6.11], np.arange(1, 3, 2/num_em), np.arange(1.05, 3.05, 2/num_ptsml))) # Initial a_vals
+    a_vals = np.concatenate(([4, 4.92, 6.07], np.arange(1, 3, 2/num_em), np.arange(1.05, 3.05, 2/num_ptsml))) # Initial a_vals
     ide_position = 0.5
     ide_width = 0.02
         
@@ -621,7 +629,7 @@ def run_sim(sim_id):
                 }
     
     # Sim integration!
-    years = 100000
+    years = 3e5
     outcome = simulate_system(sim_id, file_path, rock_names, parameters, years=years, integrator="trace")
     return (sim_id, m_vals, r_vals, m_star, r_star)
     
