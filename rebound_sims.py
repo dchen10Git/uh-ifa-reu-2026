@@ -232,7 +232,8 @@ def get_tau(rock, rock_name):
     '''
     
     # Type I migration
-    if ('planet' in rock_name) or ('embryo' in rock_name):
+    if 'planet' in rock_name:
+        return -10000, -100, -100
         m_p = rock.m
         r = rock.d # distance to the star
         a_p = rock.a
@@ -249,29 +250,79 @@ def get_tau(rock, rock_name):
         h1 = 0.047
         h = h1 * r**1.25 # scale height
         
-        t_m = (2/(2.7+1.1*alpha)) * (1/m_p) * (1/(Sigma_g*a_p**2)) * (h/r)**2 * ((1 + (e*r/(1.3*h))**5) / (1 - (e*r/(1.1*h))**4)) / Omega_k
+        t_a = (2/(2.7+1.1*alpha)) * (1/m_p) * (1/(Sigma_g*a_p**2)) * (h/r)**2 * ((1 + (e*r/(1.3*h))**5) / (1 - (e*r/(1.1*h))**4)) / Omega_k
         t_wave = (1/m_p) * (1/(Sigma_g*a_p**2)) * (h/r)**4 / Omega_k
         t_e = (t_wave/0.780) * (1 - 0.14*(e/(h/r))**2 + 0.06 * (e/(h/r))**3 + 0.18 * (e/(h/r)) * (inc/(h/r))**2)
         t_i = (t_wave/0.544) * (1 - 0.3*(inc/(h/r))**2 + 0.24 * (inc/(h/r))**3 + 0.14 * (e/(h/r))**2 * (inc/(h/r)))
+        
+        return -t_a, -t_e, -t_i # Negative so damping
+    
+    elif 'embryo' in rock_name:
+        m_p = rock.m
+        r = rock.d # distance to the star
+        a_p = rock.a
+        e = rock.e
+        inc = rock.inc
+        Omega_k = 2*np.pi/rock.P # Keplerian orbital frequency
             
-        return -t_m, -t_e, -t_i # Negative so damping
+        alpha = 1.5
+        
+        Sigma_1g = 3400 * AU**2 / Msun # Converted to Msun/AU^2 from g/cm^2
+        
+        Sigma_g = Sigma_1g * r**(-3/2)
+        
+        h1 = 0.047
+        h = h1 * r**1.25 # scale height
+        
+        t_a = (2/(2.7+1.1*alpha)) * (1/m_p) * (1/(Sigma_g*a_p**2)) * (h/r)**2 * ((1 + (e*r/(1.3*h))**5) / (1 - (e*r/(1.1*h))**4)) / Omega_k
+        t_wave = (1/m_p) * (1/(Sigma_g*a_p**2)) * (h/r)**4 / Omega_k
+        t_e = (t_wave/0.780) * (1 - 0.14*(e/(h/r))**2 + 0.06 * (e/(h/r))**3 + 0.18 * (e/(h/r)) * (inc/(h/r))**2)
+        t_i = (t_wave/0.544) * (1 - 0.3*(inc/(h/r))**2 + 0.24 * (inc/(h/r))**3 + 0.14 * (e/(h/r))**2 * (inc/(h/r)))
+        
+        return -t_a, -t_e, -t_i # Negative so damping
     
     elif 'ptsml' in rock_name:
+        e = rock.e
+        inc = rock.inc
+        R_p = rock.r
         r = rock.d # distance to the star
         Omega_k = 2*np.pi/rock.P # Keplerian orbital frequency
         
         h1 = 0.047
         h = h1 * r**1.25
-        R_p = 1000 * (1e5 / AU) # Converted to AU from km
-        rho_p = 0.0033 * m_earth / (4/3 * np.pi * R_p**3) # Ptsml density (mass / vol)
+        v_K = r*Omega_k
+        
+        rho_p = 0.001 * m_earth / (4/3 * np.pi * R_p**3) # Ptsml density (mass / vol)
         C_d = 0.44 # for km-sized ptsmls and small Mach number (see Brasser 2007) 
         rho_g = 2.9e-9 * r**(-11/4) * AU**3 / Msun # Converted to Msun/AU^3 from g/cm^3
         eta = (11/16)*((h/r)**2)
-        v_K = r*Omega_k
-        v_rel = (eta/2)*v_K
         
-        t_m = (8*rho_p*R_p) / (3*C_d*rho_g*v_rel)
-        return -t_m, -1e32, -1e32
+        v_g = v_K * np.sqrt(1 - eta)        
+        v_hw = v_K - v_g  # headwind
+        v_rel = np.sqrt((e * v_K)**2 + v_hw**2) # Adachi 1976 Eq. 5.2, approximated
+                
+        t_stop = (8*rho_p*R_p) / (3*C_d*rho_g*v_rel)
+        
+        t_a = t_stop / (2 * eta)
+        t_e = t_stop / (1 + (e/(h/r))**2)
+        t_i = t_stop / (1 + (inc/(h/r))**2)
+        
+        # A more precise reading of Adachi:
+        # !!! UNITS !!! THESE ARE FOR CGS
+        # K = 2.157
+        # E = 1.211
+        # alpha = 3 # correct?
+        
+        # t_0 = (8*rho_p*R_p) / (3*C_d*rho_g*v_K)
+        # t_a = (1/t_0) * 2 * ((2*(2*E+K)/(3*np.pi)*e + 2/np.pi*inc + eta) * eta + (((2*E+K)/(9*np.pi)) * alpha + (68*E-11*K)/(54*np.pi))* (e**3) + (inc**3)/(2*np.pi)) # Adachi 1976 Eq. 4.11
+        # t_e = (1/t_0) * ((2*E)/(np.pi)*E + 2/np.pi*inc + eta) # Adachi 1976 Eq. 4.12
+        # t_i = (1/t_0) * 1/2 * (2*E/np.pi*e + 8/(3*np.pi)*inc + eta) # Adachi 1976 Eq. 4.13
+        
+        # print(f"t_a: {t_a:.2e}")
+        # print(f"t_e: {t_e:.2e}")
+        # print(f"t_i: {t_i:.2e}")
+        
+        return -t_a, -t_e, -t_i
 
 # === HUANG IDE MODEL ===
 
@@ -444,11 +495,12 @@ def integrate_sim(sim, rocks, rock_names, parameters, years, start_time=0):
 
         "a": np.full((n_out, num_rocks), np.nan),
         "e": np.full((n_out, num_rocks), np.nan),
+        "inc": np.full((n_out, num_rocks), np.nan),
         "P": np.full((n_out, num_rocks), np.nan),
         "P_ratio": np.full((n_out, num_rocks), np.nan),
         "l": np.full((n_out, num_rocks), np.nan),
         "pomega": np.full((n_out, num_rocks), np.nan),
-
+        
         "tau_a": np.full((n_out, num_rocks), np.nan),
         "tau_e": np.full((n_out, num_rocks), np.nan),
         "tau_i": np.full((n_out, num_rocks), np.nan),
@@ -477,6 +529,7 @@ def integrate_sim(sim, rocks, rock_names, parameters, years, start_time=0):
                 # Save data
                 hist["a"][i, j] = rock.a
                 hist["e"][i, j] = rock.e
+                hist["inc"][i, j] = rock.inc
                 hist["P"][i, j] = rock.P
                 hist["l"][i, j] = rock.l
                 hist["pomega"][i, j] = rock.pomega
@@ -489,7 +542,7 @@ def integrate_sim(sim, rocks, rock_names, parameters, years, start_time=0):
                     sim.remove(hash=name)
                     print(f"{name} removed")
             
-            except:
+            except rebound.ParticleNotFound as error:
                 pass
 
             # === CHECKS FOR CLOSE ENCOUNTERS ===
@@ -505,7 +558,7 @@ def integrate_sim(sim, rocks, rock_names, parameters, years, start_time=0):
             #         break
                 
         print(f"Step {i} of {len(stage_times)}", end="\r", flush=True)
-        sim.dt = rocks[0].P / 200 # 1/200 of planet b
+        sim.dt = np.min((rocks[0].P / 20, 1/20)) # 1/20 or planet b or simply 1/20 yrs (P at 1AU)
         sim.integrate(t)    
         
         # Stop sim if planet b is gone       
@@ -556,10 +609,112 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=1000, integ
     # Add the star
     sim.add(m=m_star, r=r_star, hash='star')
     num_rocks = len(rock_names)
-        
+    
     # Add planets 
+    hash_to_name = {}
     for i in range(num_rocks):
-        sim.add(m=m_vals[i], r=r_vals[i], a=a_vals[i], hash=rock_names[i])
+        sim.add(m=m_vals[i], r=r_vals[i], a=a_vals[i], hash=rock_names[i], primary=sim.particles[0])
+        
+        # Sync hashes to names
+        h = int(sim.particles[-1].hash.value)
+        hash_to_name[h] = rock_names[i]
+        
+    # === Collision Handling ===
+    sim.collision = "direct"
+    
+    # Tracking stats
+    collision_log = []
+    particle_fate = {name: "alive" for name in rock_names}
+    accretion_stats = {
+        name: {
+            "embryos": 0,
+            "ptsmls": 0,
+            "mass": 0.
+        }
+        for name in rock_names
+    }
+    
+    def collision_resolve(sim_pointer, collided_particles_index):
+        sim = sim_pointer.contents
+        ps = sim.particles
+
+        i = collided_particles_index.p1   # Note that p1 < p2 is not guaranteed.    
+        j = collided_particles_index.p2 
+        
+        name_i = hash_to_name[int(ps[i].hash.value)]
+        name_j = hash_to_name[int(ps[j].hash.value)]
+        
+        # p1 is bigger and takes in p2
+        if ps[i].m >= ps[j].m:
+            # Log collision
+            collision_log.append({
+                "time": sim.t,
+                "survivor": name_i,
+                "victim": name_j,
+                "victim_mass": ps[j].m,
+            })
+            
+            # Track fate
+            particle_fate[name_j] = f"accreted_by_{name_i}"
+                
+            # Track accretion
+            if "embryo" in name_j:
+                accretion_stats[name_i]["embryos"] += 1
+
+            elif "ptsml" in name_j:
+                accretion_stats[name_i]["ptsmls"] += 1
+
+            accretion_stats[name_i]["mass"] += ps[j].m
+
+            # Merging Logic 
+            total_mass = ps[i].m + ps[j].m
+            merged_planet = (ps[i] * ps[i].m + ps[j] * ps[j].m)/total_mass # conservation of momentum
+
+            # merged radius assuming a uniform density
+            merged_radius = (ps[i].r**3 + ps[j].r**3)**(1/3)
+
+            ps[i] = merged_planet   # update p1's state vector (mass and radius will need corrections)
+            ps[i].m = total_mass    # update to total mass
+            ps[i].r = merged_radius # update to joined radius
+
+            return 2 # remove particle with index j
+            
+        # p2 is bigger and takes in p1
+        else:
+            # Log collision
+            collision_log.append({
+                "time": sim.t,
+                "survivor": name_j,
+                "victim": name_i,
+                "victim_mass": ps[i].m,
+            })
+            
+            # Track fate
+            particle_fate[name_i] = f"accreted_by_{name_j}"
+                
+            # Track accretion
+            if "embryo" in name_i:
+                accretion_stats[name_j]["embryos"] += 1
+
+            elif "ptsml" in name_i:
+                accretion_stats[name_j]["ptsmls"] += 1
+
+            accretion_stats[name_j]["mass"] += ps[i].m
+
+            # Merging Logic 
+            total_mass = ps[i].m + ps[j].m
+            merged_planet = (ps[i] * ps[i].m + ps[j] * ps[j].m)/total_mass # conservation of momentum
+
+            # merged radius assuming a uniform density
+            merged_radius = (ps[i].r**3 + ps[j].r**3)**(1/3)
+
+            ps[j] = merged_planet   # update p2's state vector (mass and radius will need corrections)
+            ps[j].m = total_mass    # update to total mass
+            ps[j].r = merged_radius # update to joined radius
+
+            return 1 # remove particle with index i
+    
+    sim.collision_resolve = collision_resolve
 
     # Move to center of momentum
     sim.move_to_com()
@@ -583,16 +738,20 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=1000, integ
     print(f"Sim complete? {complete_sim}")
     
     # Save data
-    save_simulation_run(data, sim_id, file_path, sim_metadata={"num_rocks": num_rocks, "rock_names": rock_names} | parameters)
+    save_simulation_run(data, sim_id, file_path, 
+                        sim_metadata={"num_rocks": num_rocks, 
+                                      "rock_names": rock_names, 
+                                      "collision_log": collision_log,
+                                      "particle_fate": particle_fate,
+                                      "accretion_stats": accretion_stats} | parameters)
  
 # === SIM SETUP ===       
 
 num_pl = 3
-num_em = 30
-num_ptsml = 60
+num_em = 5
+num_ptsml = 10
 
 rock_names = ['planet b', 'planet c', 'planet d'] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
-
 dataset_id = 0
 n_sims = 1
 
@@ -608,11 +767,12 @@ def run_sim(sim_id):
     # ALTERNATIVELY: Specify values below: 
     
     # === PARAMETERS ===
-    m_vals = np.array([3, 5, 7] + [0.01]*num_em + [0]*num_ptsml) * m_earth
-    r_vals = np.array([3, 3, 3] + [0.1]*(num_em+num_ptsml)) * r_earth
+    m_vals = np.array([3, 3, 3] + [0.01]*num_em + [0]*num_ptsml) * m_earth
+    r_vals = np.array([3, 3, 3] + [0.2]*(num_em) + [(100*1e5/AU)/r_earth]*num_ptsml) * r_earth
     m_star = 1.
     r_star = 0.1
-    a_vals = np.concatenate(([4, 4.92, 6.07], np.arange(1, 3, 2/num_em), np.arange(1.05, 3.05, 2/num_ptsml))) # Initial a_vals
+    a_vals = np.concatenate(([3.5, 5.18, 7.66], np.arange(1, 3, 2/num_em), np.arange(1.05, 3.05, 2/num_ptsml))) # Initial a_vals
+    
     ide_position = 0.5
     ide_width = 0.02
         
@@ -629,7 +789,7 @@ def run_sim(sim_id):
                 }
     
     # Sim integration!
-    years = 3e5
+    years = 1e5
     outcome = simulate_system(sim_id, file_path, rock_names, parameters, years=years, integrator="trace")
     return (sim_id, m_vals, r_vals, m_star, r_star)
     
