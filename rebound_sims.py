@@ -283,44 +283,30 @@ def get_tau(rock, rock_name):
     elif 'ptsml' in rock_name:
         e = rock.e
         inc = rock.inc
-        R_p = rock.r
-        r = rock.d # distance to the star
-        Omega_k = 2*np.pi/rock.P # Keplerian orbital frequency
-        
+        R_p = rock.r * AU # cm
+        r = rock.d * AU # cm
+        Omega_k = 2*np.pi/(rock.P*yr) # 1/s
+
         h1 = 0.047
-        h = h1 * r**1.25
-        v_K = r*Omega_k
-        
-        rho_p = 0.001 * m_earth / (4/3 * np.pi * R_p**3) # Ptsml density (mass / vol)
+        h = h1 * (r/AU)**1.25
+        v_K = r*Omega_k # cm/s
+
+        rho_p = 0.001 * m_earth / (4/3 * np.pi * R_p**3) * Msun # Ptsml density (mass / vol)
         C_d = 0.44 # for km-sized ptsmls and small Mach number (see Brasser 2007) 
-        rho_g = 2.9e-9 * r**(-11/4) * AU**3 / Msun # Converted to Msun/AU^3 from g/cm^3
+        rho_g = 2.9e-9 * (r/AU)**(-11/4) # g/cm^3
         eta = (11/16)*((h/r)**2)
-        
-        v_g = v_K * np.sqrt(1 - eta)        
-        v_hw = v_K - v_g  # headwind
-        v_rel = np.sqrt((e * v_K)**2 + v_hw**2) # Adachi 1976 Eq. 5.2, approximated
+
+        K = 2.157
+        E = 1.211
+        alpha = 3 # correct?
+
+        t_0 = (8*rho_p*R_p) / (3*C_d*rho_g*v_K) / yr # yr
+        t_a = t_0 / (2 * ((2*(2*E+K)/(3*np.pi)*e + 2/np.pi*inc + eta) * eta + 
+                            (((2*E+K)/(9*np.pi)) * alpha + (68*E-11*K)/(54*np.pi))* (e**3) +
+                            (inc**3)/(2*np.pi))) # Adachi 1976 Eq. 4.11
+        t_e = t_0 / ((2*E)/(np.pi)*e + 2/np.pi*inc + eta) # Adachi 1976 Eq. 4.12
+        t_i = t_0 / (1/2 * (2*E/np.pi*e + 8/(3*np.pi)*inc + eta)) # Adachi 1976 Eq. 4.13
                 
-        t_stop = (8*rho_p*R_p) / (3*C_d*rho_g*v_rel)
-        
-        t_a = t_stop / (2 * eta)
-        t_e = t_stop / (1 + (e/(h/r))**2)
-        t_i = t_stop / (1 + (inc/(h/r))**2)
-        
-        # A more precise reading of Adachi:
-        # !!! UNITS !!! THESE ARE FOR CGS
-        # K = 2.157
-        # E = 1.211
-        # alpha = 3 # correct?
-        
-        # t_0 = (8*rho_p*R_p) / (3*C_d*rho_g*v_K)
-        # t_a = (1/t_0) * 2 * ((2*(2*E+K)/(3*np.pi)*e + 2/np.pi*inc + eta) * eta + (((2*E+K)/(9*np.pi)) * alpha + (68*E-11*K)/(54*np.pi))* (e**3) + (inc**3)/(2*np.pi)) # Adachi 1976 Eq. 4.11
-        # t_e = (1/t_0) * ((2*E)/(np.pi)*E + 2/np.pi*inc + eta) # Adachi 1976 Eq. 4.12
-        # t_i = (1/t_0) * 1/2 * (2*E/np.pi*e + 8/(3*np.pi)*inc + eta) # Adachi 1976 Eq. 4.13
-        
-        # print(f"t_a: {t_a:.2e}")
-        # print(f"t_e: {t_e:.2e}")
-        # print(f"t_i: {t_i:.2e}")
-        
         return -t_a, -t_e, -t_i
 
 # === HUANG IDE MODEL ===
@@ -717,7 +703,7 @@ num_em = 40
 num_ptsml = 750
 
 rock_names = ['planet b', 'planet c', 'planet d'] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
-dataset_id = 0
+dataset_id = 1
 n_sims = 1
 
 def run_sim(sim_id):
