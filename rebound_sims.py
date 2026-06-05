@@ -233,7 +233,6 @@ def get_tau(rock, rock_name):
     
     # Type I migration
     if 'planet' in rock_name:
-        return -10000, -100, -100
         m_p = rock.m
         r = rock.d # distance to the star
         a_p = rock.a
@@ -638,81 +637,47 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=1000, integ
         sim = sim_pointer.contents
         ps = sim.particles
 
-        i = collided_particles_index.p1   # Note that p1 < p2 is not guaranteed.    
-        j = collided_particles_index.p2 
-        
-        name_i = hash_to_name[int(ps[i].hash.value)]
-        name_j = hash_to_name[int(ps[j].hash.value)]
-        
-        # p1 is bigger and takes in p2
+        i = collided_particles_index.p1
+        j = collided_particles_index.p2
+
+        # Determine survivor (bigger particle) and victim (smaller particle)
         if ps[i].m >= ps[j].m:
-            # Log collision
-            collision_log.append({
-                "time": sim.t,
-                "survivor": name_i,
-                "victim": name_j,
-                "victim_mass": ps[j].m,
-            })
-            
-            # Track fate
-            particle_fate[name_j] = f"accreted_by_{name_i}"
-                
-            # Track accretion
-            if "embryo" in name_j:
-                accretion_stats[name_i]["embryos"] += 1
-
-            elif "ptsml" in name_j:
-                accretion_stats[name_i]["ptsmls"] += 1
-
-            accretion_stats[name_i]["mass"] += ps[j].m
-
-            # Merging Logic 
-            total_mass = ps[i].m + ps[j].m
-            merged_planet = (ps[i] * ps[i].m + ps[j] * ps[j].m)/total_mass # conservation of momentum
-
-            # merged radius assuming a uniform density
-            merged_radius = (ps[i].r**3 + ps[j].r**3)**(1/3)
-
-            ps[i] = merged_planet   # update p1's state vector (mass and radius will need corrections)
-            ps[i].m = total_mass    # update to total mass
-            ps[i].r = merged_radius # update to joined radius
-
-            return 2 # remove particle with index j
-            
-        # p2 is bigger and takes in p1
+            survivor_idx = i
+            victim_idx = j
+            remove_code = 2
         else:
-            # Log collision
-            collision_log.append({
-                "time": sim.t,
-                "survivor": name_j,
-                "victim": name_i,
-                "victim_mass": ps[i].m,
-            })
-            
-            # Track fate
-            particle_fate[name_i] = f"accreted_by_{name_j}"
-                
-            # Track accretion
-            if "embryo" in name_i:
-                accretion_stats[name_j]["embryos"] += 1
+            survivor_idx = j
+            victim_idx = i
+            remove_code = 1
 
-            elif "ptsml" in name_i:
-                accretion_stats[name_j]["ptsmls"] += 1
+        survivor_name = hash_to_name[int(ps[survivor_idx].hash.value)]
+        victim_name = hash_to_name[int(ps[victim_idx].hash.value)]
 
-            accretion_stats[name_j]["mass"] += ps[i].m
+        # Log collision
+        collision_log.append({
+            "time": sim.t,
+            "survivor": survivor_name,
+            "victim": victim_name,
+            "victim mass": ps[victim_idx].m,
+        })
 
-            # Merging Logic 
-            total_mass = ps[i].m + ps[j].m
-            merged_planet = (ps[i] * ps[i].m + ps[j] * ps[j].m)/total_mass # conservation of momentum
+        # Track fate
+        particle_fate[victim_name] = f"accreted by {survivor_name}"
 
-            # merged radius assuming a uniform density
-            merged_radius = (ps[i].r**3 + ps[j].r**3)**(1/3)
+        # Track accretion
+        if "embryo" in victim_name:
+            accretion_stats[survivor_name]["embryos"] += 1
+        elif "ptsml" in victim_name:
+            accretion_stats[survivor_name]["ptsmls"] += 1
 
-            ps[j] = merged_planet   # update p2's state vector (mass and radius will need corrections)
-            ps[j].m = total_mass    # update to total mass
-            ps[j].r = merged_radius # update to joined radius
+        accretion_stats[survivor_name]["mass"] += ps[victim_idx].m
 
-            return 1 # remove particle with index i
+        # Merge
+        ps[survivor_idx] = (ps[survivor_idx] * ps[survivor_idx].m + ps[victim_idx] * ps[victim_idx].m) / (ps[survivor_idx].m + ps[victim_idx].m)
+        ps[survivor_idx].m = ps[survivor_idx].m + ps[victim_idx].m
+        ps[survivor_idx].r = (ps[survivor_idx].r**3 + ps[victim_idx].r**3)**(1/3)
+
+        return remove_code
     
     sim.collision_resolve = collision_resolve
 
@@ -725,8 +690,8 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=1000, integ
     mof = rebx.load_force("modify_orbits_forces")
     rebx.add_force(mof)
     
-    mof.params["ide_position"] = 0.5 # arbitrary values
-    mof.params["ide_width"] = 0.02
+    mof.params["ide_position"] = ide_position
+    mof.params["ide_width"] = ide_width
 
     # Failsafe
     if years < 1000:
@@ -748,8 +713,8 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=1000, integ
 # === SIM SETUP ===       
 
 num_pl = 3
-num_em = 5
-num_ptsml = 10
+num_em = 40
+num_ptsml = 750
 
 rock_names = ['planet b', 'planet c', 'planet d'] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
 dataset_id = 0
@@ -767,7 +732,7 @@ def run_sim(sim_id):
     # ALTERNATIVELY: Specify values below: 
     
     # === PARAMETERS ===
-    m_vals = np.array([3, 3, 3] + [0.01]*num_em + [0]*num_ptsml) * m_earth
+    m_vals = np.array([3, 5, 7] + [0.01]*num_em + [0]*num_ptsml) * m_earth
     r_vals = np.array([3, 3, 3] + [0.2]*(num_em) + [(100*1e5/AU)/r_earth]*num_ptsml) * r_earth
     m_star = 1.
     r_star = 0.1
@@ -789,7 +754,7 @@ def run_sim(sim_id):
                 }
     
     # Sim integration!
-    years = 1e5
+    years = 4e5
     outcome = simulate_system(sim_id, file_path, rock_names, parameters, years=years, integrator="trace")
     return (sim_id, m_vals, r_vals, m_star, r_star)
     
