@@ -223,14 +223,17 @@ def generate_params(planet_names, rng):
     return m_vals, r_vals, m_star, r_star, initial_P_ratios
 
 # From Izidoro 2014
-def get_tau(rock, rock_name):
+def get_tau(rock, rock_name, Sigma_1g=None, K_factor=None):
     '''Calculates damping timescales given parameters for one rock.
-    Based on Izidoro 2014 and Brasser 2007.
+    Based on formulas from Izidoro 2014, Brasser 2007, and Adachi 1976.
     Planets and embryos are affected by migration while planetesimals
     are affected by gas drag.
     Negative tau indicates damping for modify_orbits_forces.
-    '''
     
+    Sigma_1g (disk surface density at 1AU, in units of g/cm^3) and the 
+    K_factor can be provided but are optional.
+    '''
+        
     # Type I migration
     if 'planet' in rock_name:
         m_p = rock.m
@@ -242,11 +245,18 @@ def get_tau(rock, rock_name):
             
         alpha = 1.5
         
-        Sigma_1g = 3400 * AU**2 / Msun # Converted to Msun/AU^2 from g/cm^2
+        if Sigma_1g is None:
+            Sigma_1g = 3400 # Value in Izidoro 2014, in g/cm^2
         
+        Sigma_1g *= AU**2 / Msun # Converted to Msun/AU^2 from g/cm^2
         Sigma_g = Sigma_1g * r**(-3/2)
         
-        h1 = 0.047
+        alpha = 1.5 # flaring index
+    
+        if K_factor is None:
+            h1 = 0.047
+        else:
+            h1 = ((2.7+1.1*alpha) / 0.780 * K_factor)**(-1/2)
         h = h1 * r**1.25 # scale height
         
         t_a = (2/(2.7+1.1*alpha)) * (1/m_p) * (1/(Sigma_g*a_p**2)) * (h/r)**2 * ((1 + (e*r/(1.3*h))**5) / (1 - (e*r/(1.1*h))**4)) / Omega_k
@@ -266,11 +276,18 @@ def get_tau(rock, rock_name):
             
         alpha = 1.5
         
-        Sigma_1g = 3400 * AU**2 / Msun # Converted to Msun/AU^2 from g/cm^2
+        if Sigma_1g is None:
+            Sigma_1g = 3400 # Value in Izidoro 2014, in g/cm^2
         
+        Sigma_1g *= AU**2 / Msun # Converted to Msun/AU^2 from g/cm^2        
         Sigma_g = Sigma_1g * r**(-3/2)
         
-        h1 = 0.047
+        alpha = 1.5 # flaring index
+    
+        if K_factor is None:
+            h1 = 0.047
+        else:
+            h1 = ((2.7+1.1*alpha) / 0.780 * K_factor)**(-1/2)
         h = h1 * r**1.25 # scale height
         
         t_a = (2/(2.7+1.1*alpha)) * (1/m_p) * (1/(Sigma_g*a_p**2)) * (h/r)**2 * ((1 + (e*r/(1.3*h))**5) / (1 - (e*r/(1.1*h))**4)) / Omega_k
@@ -287,163 +304,38 @@ def get_tau(rock, rock_name):
         r = rock.d * AU # cm
         Omega_k = 2*np.pi/(rock.P*yr) # 1/s
 
-        h1 = 0.047
-        h = h1 * (r/AU)**1.25
+        if Sigma_1g is None:
+            Sigma_1g = 3400 # g/cm^2
+        
+        Sigma_g = Sigma_1g * (r/AU)**(-3/2) # g/cm^2
+        
+        alpha_flaring = 1.5 # flaring index
+    
+        if K_factor is None:
+            h1 = 0.047 # AU
+        else:
+            h1 = ((2.7+1.1*alpha_flaring) / 0.780 * K_factor)**(-1/2)
+        h = h1 * (r/AU)**1.25 # scale height in AU
         v_K = r*Omega_k # cm/s
 
-        rho_p = 0.001 * m_earth / (4/3 * np.pi * R_p**3) * Msun # Ptsml density (mass / vol)
+        m_p = 0.0033 * u.Mearth.to(u.g) # g
+        rho_p = m_p / (4/3 * np.pi * R_p**3) # Ptsml density (mass / vol) in g/cm^3
         C_d = 0.44 # for km-sized ptsmls and small Mach number (see Brasser 2007) 
-        rho_g = 2.9e-9 * (r/AU)**(-11/4) # g/cm^3
-        eta = (11/16)*((h/r)**2)
+        rho_g = Sigma_1g/(np.sqrt(np.pi)*(h1*AU)) * (r/AU)**(-11/4) # g/cm^3
+        eta = (11/16)*(h*AU/r)**2
 
         K = 2.157
         E = 1.211
-        alpha = 3 # correct?
-
+        alpha = 3 # constant in Adachi model; NOT flaring index
+        
         t_0 = (8*rho_p*R_p) / (3*C_d*rho_g*v_K) / yr # yr
         t_a = t_0 / (2 * ((2*(2*E+K)/(3*np.pi)*e + 2/np.pi*inc + eta) * eta + 
                             (((2*E+K)/(9*np.pi)) * alpha + (68*E-11*K)/(54*np.pi))* (e**3) +
                             (inc**3)/(2*np.pi))) # Adachi 1976 Eq. 4.11
         t_e = t_0 / ((2*E)/(np.pi)*e + 2/np.pi*inc + eta) # Adachi 1976 Eq. 4.12
         t_i = t_0 / (1/2 * (2*E/np.pi*e + 8/(3*np.pi)*inc + eta)) # Adachi 1976 Eq. 4.13
-                
         return -t_a, -t_e, -t_i
-
-# === HUANG IDE MODEL ===
-
-# def f_functions(r, r_c, Delta, A_a, A_e):
-#     # Piecewise functions f_a and f_e
-#     conditions = [
-#         r < r_c - Delta,
-#         (r_c - Delta <= r) & (r < r_c),
-#         (r_c <= r) & (r < r_c + Delta + 1 / A_a),
-#         r >= r_c + Delta + 1 / A_a
-#     ]
-
-#     f_a = [
-#         0,          
-#         A_a * (r_c - Delta - r) / Delta,
-#         (r-r_c)* (A_a + 1) / (Delta + 1/A_a) - (A_a), # modified to make it continuous, paper might be wrong
-#         1
-#     ]
-
-#     f_e = [
-#         0,          
-#         A_e * (r - r_c + Delta) / Delta,
-#         (A_e - 1) * (r_c + Delta + 1 / A_a - r) / (Delta + 1 / A_a) + 1, 
-#         1
-#     ]
-
-#     f_a_vals = np.select(conditions, f_a, default=np.nan)
-#     f_e_vals = np.select(conditions, f_e, default=np.nan)
-#     return f_a_vals, f_e_vals
-
-# def get_taus_huang(m_vals, r_vals, m_star, current_a_vals, tau_a_earth, r_earth, q_earth, q_vals, Q_sim, C_e):
-#     '''
-#     Computes damping timescales based on current semimajor axis values.
     
-#     Parameters:
-#         current_a_vals: 1D NumPy array of current semimajor axis values.
-    
-#     Returns:
-#         tau_a: semimajor axis damping timescale.
-#         tau_e: eccentricity damping timescale.
-#     '''
-#     f_a_vals, f_e_vals = f_functions(current_a_vals)
-#     tau_a = -tau_a_earth * (q_earth / q_vals) / f_a_vals # negative so damping.
-#     tau_e_disk = C_e * tau_a * f_a_vals / f_e_vals # I removed a h^2 here
-#     tau_e_star = 7.63e5 * Q_sim * (m_vals/m_earth) * (1/m_star)**1.5 * (r_earth/r_vals)** 5 * (current_a_vals/0.05)**6.5
-#     tau_e = (tau_e_disk * tau_e_star) / (tau_e_disk + tau_e_star) # combining the two based on Eqs. 4 and 13
-#     return tau_a, tau_e
-
-# def simulate_trappist1_huang(m_vals, r_vals, m_star, r_star, initial_P_ratios, Sigma_1au, K_factor, planet_names, sim_id, file_path, integrator="whfast", test=False):
-#     '''
-#     Given initial parameters. planet_names, sim_id, file_path, and integrator,
-#     simulates the TRAPPIST-1 system, saves the data, and returns list depending 
-#     on the outcome. 
-#     '''
-#     # Create the simulation
-#     sim = rebound.Simulation()
-#     sim.units = ('AU', 'yr', 'Msun')
-#     sim.integrator = integrator
-
-#     # Add the star
-#     sim.add(m=m_star, r=r_star)
-    
-#     q_vals = m_vals / m_star
-#     q_earth =  3.003e-6 / m_star
-
-#     num_planets = len(m_vals)
-    
-#     # Define initial eccentricities (e)
-#     e_vals = np.zeros_like(m_vals)
-
-#     # Draw initial mean anomalies (M)
-#     M_vals = np.zeros_like(m_vals)
-
-#     # Initial semimajor axis of b
-#     a_b = 0.05
-
-#     # Define initial periods (P) and semimajor axes (a)
-#     P_vals = [(a_b**3 / m_star)**(1/2)]
-#     for i in range(num_planets-1):
-#         P_vals = np.append(P_vals, P_vals[i] * initial_P_ratios[i])
-        
-#     a_vals = (P_vals**2 * m_star)**(1/3)
-
-#     # Add planets 
-#     for i in range(num_planets):
-#         sim.add(m=m_vals[i], r=r_vals[i], a=a_vals[i], e=e_vals[i], M=M_vals[i])
-
-#     # Move to center of momentum
-#     sim.move_to_com()
-#     ps = sim.particles
-#     planets = ps[1:] # for easier indexing
-    
-#     initial_tau_a_vals = get_taus(a_vals, m_vals, m_star)[0]
-#     print(f"tau_a values: {np.round(initial_tau_a_vals)} yr \n")
-    
-#     years = np.clip(2*initial_tau_a_vals[-1], 30000, 10000000) # Integrate for tau_a of the last planet (Keller does 3*tau_a), with 
-#                                                                # lower limit 30 kyr and upper limit 10 Myr
-#     # print(f"Integrating {years/1000:.4} kyrs \n")
-    
-#     if test: # Short simulation for testing purposes
-#         years = 100
-    
-#     # Code using modify_orbits_forces
-#     rebx = reboundx.Extras(sim)
-
-#     # Planet-disk interaction
-#     mof = rebx.load_force("modify_orbits_forces")
-#     rebx.add_force(mof)
-
-    
-#     # Huang & Ormel (2022) used positions r_c in [0.013 - 0.030 au] with width 
-#     # Delta = 2hr_c = 0.06 r_c. In particular, r_c = 0.023 worked best.
-    
-#     data, complete_sim = integrate_sim(sim, num_planets, planets, planet_names, m_vals, m_star, years, start_time=0)
-    
-#     # Save data
-#     save_simulation_run(data, sim_id, file_path, sim_metadata={
-#                         "num_planets": num_planets, 
-#                         "planet_names": planet_names,
-#                         "m_vals": m_vals,
-#                         "r_vals": r_vals,
-#                         "m_star": m_star,
-#                         "r_star": r_star,
-#                         "initial_P_ratios": initial_P_ratios,
-#                         "Sigma_1au": Sigma_1au,
-#                         "K_factor": K_factor,
-#                         "integrator": integrator
-#                         })
-
-#     saved_sim = load_simulation_run(file_path)
-#     outcome = mmr_id.res_chain_outcome(saved_sim)
-#     if complete_sim:
-#         return outcome
-#     else:
-#         return np.full_like(outcome, -1)
-
 # === RUNNING THE SIM ===
 
 def get_hill_radius(m1, a1, m2, a2, M_star):
@@ -562,6 +454,7 @@ def integrate_sim(sim, rocks, rock_names, parameters, years, start_time=0):
             "time": hist["time"],
             "a": hist["a"][:, j],
             "e": hist["e"][:, j],
+            "inc": hist["inc"][:, j],
             "P": hist["P"][:, j],
             "P_ratio": hist["P_ratio"][:, j],
             "l": hist["l"][:, j],
@@ -698,11 +591,12 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=1000, integ
  
 # === SIM SETUP ===       
 
-num_pl = 3
-num_em = 40
-num_ptsml = 750
+num_pl = 1
+num_em = 1
+num_ptsml = 1
 
-rock_names = ['planet b', 'planet c', 'planet d'] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
+rock_names = ['planet b'] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
+# , 'planet c', 'planet d'
 dataset_id = 1
 n_sims = 1
 
@@ -718,14 +612,18 @@ def run_sim(sim_id):
     # ALTERNATIVELY: Specify values below: 
     
     # === PARAMETERS ===
-    m_vals = np.array([3, 5, 7] + [0.01]*num_em + [0]*num_ptsml) * m_earth
-    r_vals = np.array([3, 3, 3] + [0.2]*(num_em) + [(100*1e5/AU)/r_earth]*num_ptsml) * r_earth
+    m_vals = np.array([3] + [0.01]*num_em + [0]*num_ptsml) * m_earth
+    r_vals = np.array([3] + [0.2]*(num_em) + [(100*1e5/AU)/r_earth]*num_ptsml) * r_earth
     m_star = 1.
     r_star = 0.1
-    a_vals = np.concatenate(([3.5, 5.18, 7.66], np.arange(1, 3, 2/num_em), np.arange(1.05, 3.05, 2/num_ptsml))) # Initial a_vals
-    
+    a_vals = np.concatenate(([3.5], np.arange(1, 3, 2/num_em), np.arange(1.05, 3.05, 2/num_ptsml))) # Initial a_vals
+    # , 5.18, 7.66
     ide_position = 0.5
     ide_width = 0.02
+    # Sigma_1au = np.tile(np.logspace(1, 4, num=10), 10)[sim_id] # Each row is the same
+    # K_factor = np.repeat(np.logspace(1, 3, num=10), 10)[sim_id] # Each column is the same
+    # Sigma_1au = 3400
+    # K_factor = 100
         
     parameters = {"m_vals": m_vals,
                   "m_star": m_star,
@@ -736,11 +634,13 @@ def run_sim(sim_id):
                   "num_em": num_em,
                   "num_ptsml": num_ptsml,
                   "ide_position": ide_position,
-                  "ide_width": ide_width
+                  "ide_width": ide_width,
+                  # "Sigma_1au": Sigma_1au,
+                  # "K_factor": K_factor
                 }
     
     # Sim integration!
-    years = 4e5
+    years = 1000
     outcome = simulate_system(sim_id, file_path, rock_names, parameters, years=years, integrator="trace")
     return (sim_id, m_vals, r_vals, m_star, r_star)
     
