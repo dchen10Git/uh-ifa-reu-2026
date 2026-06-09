@@ -223,17 +223,25 @@ def generate_params(planet_names, rng):
     return m_vals, r_vals, m_star, r_star, initial_P_ratios
 
 # From Izidoro 2014
-def get_tau(rock, rock_name, Sigma_1g=None, K_factor=None):
-    '''Calculates damping timescales given parameters for one rock.
+def get_tau(rock, rock_name, Sigma_1au=None, K_factor=None):
+    """Calculates damping timescales given parameters for one rock.
     Based on formulas from Izidoro 2014, Brasser 2007, and Adachi 1976.
     Planets and embryos are affected by migration while planetesimals
     are affected by gas drag.
-    Negative tau indicates damping for modify_orbits_forces.
-    
-    Sigma_1g (disk surface density at 1AU, in units of g/cm^3) and the 
-    K_factor can be provided but are optional.
-    '''
-        
+    Note that negative tau indicates damping for modify_orbits_forces.
+
+    Args:
+        rock (rebound.particle.Particle): REBOUND particle object to 
+        calculate damping timescales for.
+        rock_name (str): Name of the particle.
+        Sigma_1au (float): Disk surface density at 1 AU, given in units
+        of g/cm^2.
+        K_factor (float): Factor which equals tau_a/tau_e.
+
+    Returns:
+        tuple: Tuple containing tau_a, tau_e, tau_i for the given object,
+        in units of years
+    """    
     # Type I migration
     if 'planet' in rock_name:
         m_p = rock.m
@@ -242,21 +250,11 @@ def get_tau(rock, rock_name, Sigma_1g=None, K_factor=None):
         e = rock.e
         inc = rock.inc
         Omega_k = 2*np.pi/rock.P # Keplerian orbital frequency
-            
-        alpha = 1.5
         
-        if Sigma_1g is None:
-            Sigma_1g = 3400 # Value in Izidoro 2014, in g/cm^2
-        
-        Sigma_1g *= AU**2 / Msun # Converted to Msun/AU^2 from g/cm^2
-        Sigma_g = Sigma_1g * r**(-3/2)
-        
+        Sigma_1au *= AU**2 / Msun # Converted to Msun/AU^2 from g/cm^2
+        Sigma_g = Sigma_1au * r**(-3/2)
         alpha = 1.5 # flaring index
-    
-        if K_factor is None:
-            h1 = 0.047
-        else:
-            h1 = ((2.7+1.1*alpha) / 0.780 * K_factor)**(-1/2)
+        h1 = ((2.7+1.1*alpha) / 0.780 * K_factor)**(-1/2)
         h = h1 * r**1.25 # scale height
         
         t_a = (2/(2.7+1.1*alpha)) * (1/m_p) * (1/(Sigma_g*a_p**2)) * (h/r)**2 * ((1 + (e*r/(1.3*h))**5) / (1 - (e*r/(1.1*h))**4)) / Omega_k
@@ -274,20 +272,10 @@ def get_tau(rock, rock_name, Sigma_1g=None, K_factor=None):
         inc = rock.inc
         Omega_k = 2*np.pi/rock.P # Keplerian orbital frequency
             
-        alpha = 1.5
-        
-        if Sigma_1g is None:
-            Sigma_1g = 3400 # Value in Izidoro 2014, in g/cm^2
-        
-        Sigma_1g *= AU**2 / Msun # Converted to Msun/AU^2 from g/cm^2        
-        Sigma_g = Sigma_1g * r**(-3/2)
-        
+        Sigma_1au *= AU**2 / Msun # Converted to Msun/AU^2 from g/cm^2        
+        Sigma_g = Sigma_1au * r**(-3/2)
         alpha = 1.5 # flaring index
-    
-        if K_factor is None:
-            h1 = 0.047
-        else:
-            h1 = ((2.7+1.1*alpha) / 0.780 * K_factor)**(-1/2)
+        h1 = ((2.7+1.1*alpha) / 0.780 * K_factor)**(-1/2)
         h = h1 * r**1.25 # scale height
         
         t_a = (2/(2.7+1.1*alpha)) * (1/m_p) * (1/(Sigma_g*a_p**2)) * (h/r)**2 * ((1 + (e*r/(1.3*h))**5) / (1 - (e*r/(1.1*h))**4)) / Omega_k
@@ -303,25 +291,17 @@ def get_tau(rock, rock_name, Sigma_1g=None, K_factor=None):
         R_p = rock.r * AU # cm
         r = rock.d * AU # cm
         Omega_k = 2*np.pi/(rock.P*yr) # 1/s
-
-        if Sigma_1g is None:
-            Sigma_1g = 3400 # g/cm^2
         
-        Sigma_g = Sigma_1g * (r/AU)**(-3/2) # g/cm^2
-        
+        Sigma_g = Sigma_1au * (r/AU)**(-3/2) # g/cm^2
         alpha_flaring = 1.5 # flaring index
-    
-        if K_factor is None:
-            h1 = 0.047 # AU
-        else:
-            h1 = ((2.7+1.1*alpha_flaring) / 0.780 * K_factor)**(-1/2)
+        h1 = ((2.7+1.1*alpha_flaring) / 0.780 * K_factor)**(-1/2)
         h = h1 * (r/AU)**1.25 # scale height in AU
         v_K = r*Omega_k # cm/s
 
         m_p = 0.0033 * u.Mearth.to(u.g) # g
         rho_p = m_p / (4/3 * np.pi * R_p**3) # Ptsml density (mass / vol) in g/cm^3
         C_d = 0.44 # for km-sized ptsmls and small Mach number (see Brasser 2007) 
-        rho_g = Sigma_1g/(np.sqrt(np.pi)*(h1*AU)) * (r/AU)**(-11/4) # g/cm^3
+        rho_g = Sigma_1au/(np.sqrt(np.pi)*(h1*AU)) * (r/AU)**(-11/4) # g/cm^3
         eta = (11/16)*(h*AU/r)**2
 
         K = 2.157
@@ -334,6 +314,7 @@ def get_tau(rock, rock_name, Sigma_1g=None, K_factor=None):
                             (inc**3)/(2*np.pi))) # Adachi 1976 Eq. 4.11
         t_e = t_0 / ((2*E)/(np.pi)*e + 2/np.pi*inc + eta) # Adachi 1976 Eq. 4.12
         t_i = t_0 / (1/2 * (2*E/np.pi*e + 8/(3*np.pi)*inc + eta)) # Adachi 1976 Eq. 4.13
+        
         return -t_a, -t_e, -t_i
     
 # === RUNNING THE SIM ===
@@ -359,7 +340,7 @@ def integrate_sim(sim, rocks, rock_names, parameters, years, start_time=0):
             * stage_data (pd.Dataframe): Simulation data.
             * completed_sim (bool): Whether the integration was fully compelted.
     '''
-    m_vals, m_star, r_vals, r_star = parameters["m_vals"], parameters["m_star"], parameters["r_vals"], parameters["r_star"]
+    m_vals, m_star, r_vals, r_star, Sigma_1au, K_factor = parameters["m_vals"], parameters["m_star"], parameters["r_vals"], parameters["r_star"], parameters["Sigma_1au"], parameters["K_factor"]
     num_pl, num_em, num_ptsml = parameters["num_pl"], parameters["num_em"], parameters["num_ptsml"]
     num_rocks = len(rock_names)
     
@@ -394,7 +375,7 @@ def integrate_sim(sim, rocks, rock_names, parameters, years, start_time=0):
             try: # Prevent error for removed particles
                 rock = sim.particles[name]
                 
-                tau_a, tau_e, tau_i = get_tau(rock, name)
+                tau_a, tau_e, tau_i = get_tau(rock, name, Sigma_1au, K_factor)
                 rock.params["tau_a"] = tau_a
                 rock.params["tau_e"] = tau_e
                 rock.params["tau_inc"] = tau_i
@@ -466,18 +447,21 @@ def integrate_sim(sim, rocks, rock_names, parameters, years, start_time=0):
     
     return stage_data, completed_sim
 
-def simulate_system(sim_id, file_path, rock_names, parameters, years=1000, integrator="whfast"):
-    '''Creates a REBOUND simulation, runs the simulation, and saves it to disk.
-    
-    Parameters:
+def simulate_system(sim_id, file_path, rock_names, parameters, years=None, integrator="whfast"):
+    """Creates a REBOUND simulation, runs the simulation, and saves it to disk.
+
+    Args:
         sim_id (int): Simulation ID.
         file_path (str): Name of the file path for data storage.
         rock_names (list[str]): Names of the rocks (non-stellar particles).    
         parameters (dict): Dictionary containing planet and star parameters.
-        years (float, optional, defaults to 1000): Number of years to integrate the simulation.
+        years (float, optional, defaults to None): Number of years to integrate the simulation.
+            If none is given, will use max(tau_a of the last planet) and clip within (30kyr, 10Myr).
         integrator (str, optional, defaults to whfast): Name of the REBOUND integrator to use.
-    '''
-    m_vals, m_star, r_vals, r_star, a_vals, ide_position, ide_width = parameters["m_vals"], parameters["m_star"], parameters["r_vals"], parameters["r_star"], parameters["a_vals"], parameters["ide_position"], parameters["ide_width"]
+    """    
+    m_vals, m_star, r_vals, r_star, a_vals = parameters["m_vals"], parameters["m_star"], parameters["r_vals"], parameters["r_star"], parameters["a_vals"]
+    ide_position, ide_width, Sigma_1au, K_factor = parameters["ide_position"], parameters["ide_width"], parameters["Sigma_1au"], parameters["K_factor"]
+    num_pl, num_em, num_ptsml = parameters["num_pl"], parameters["num_em"], parameters["num_ptsml"]
     
     # Create the simulation
     sim = rebound.Simulation()
@@ -488,7 +472,7 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=1000, integ
     sim.add(m=m_star, r=r_star, hash='star')
     num_rocks = len(rock_names)
     
-    # Add planets 
+    # Add rocks 
     hash_to_name = {}
     for i in range(num_rocks):
         sim.add(m=m_vals[i], r=r_vals[i], a=a_vals[i], hash=rock_names[i], primary=sim.particles[0])
@@ -496,6 +480,9 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=1000, integ
         # Sync hashes to names
         h = int(sim.particles[-1].hash.value)
         hash_to_name[h] = rock_names[i]
+    
+    sim.N_active = num_pl + num_em # Massive particles which mutually interact gravitationally
+    sim.testparticle_type = 1 # Ptsmls will not interact with each other
         
     # === Collision Handling ===
     sim.collision = "direct"
@@ -546,6 +533,7 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=1000, integ
         # Track accretion
         if "embryo" in victim_name:
             accretion_stats[survivor_name]["embryos"] += 1
+            sim.N_active -= 1
         elif "ptsml" in victim_name:
             accretion_stats[survivor_name]["ptsmls"] += 1
 
@@ -572,10 +560,11 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=1000, integ
     mof.params["ide_position"] = ide_position
     mof.params["ide_width"] = ide_width
 
-    # Failsafe
-    if years < 1000:
-        years = 1000
-        print("Years clipped to 1000")
+    if years is None: # Set to tau_a of the last planet
+        years = -get_tau(rocks[num_pl-1], rock_names[num_pl-1], Sigma_1au, K_factor)[0]
+
+    # Clip
+    years = np.clip(years, 30e3, 10e6)
         
     print(f"Sim {sim_id:<2d} | {years:.3g} years", flush=True)
     data, complete_sim = integrate_sim(sim, rocks, rock_names, parameters, years, start_time=0)
@@ -591,14 +580,13 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=1000, integ
  
 # === SIM SETUP ===       
 
-num_pl = 1
-num_em = 1
-num_ptsml = 1
+num_pl = 4
+num_em = 40
+num_ptsml = 500
 
-rock_names = ['planet b'] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
-# , 'planet c', 'planet d'
-dataset_id = 1
-n_sims = 1
+rock_names = ['planet b', 'planet c', 'planet d', 'planet e'] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
+dataset_id = 2
+n_sims = 100
 
 def run_sim(sim_id):
     # Different rng for each sim
@@ -612,18 +600,21 @@ def run_sim(sim_id):
     # ALTERNATIVELY: Specify values below: 
     
     # === PARAMETERS ===
-    m_vals = np.array([3] + [0.01]*num_em + [0]*num_ptsml) * m_earth
-    r_vals = np.array([3] + [0.2]*(num_em) + [(100*1e5/AU)/r_earth]*num_ptsml) * r_earth
-    m_star = 1.
-    r_star = 0.1
-    a_vals = np.concatenate(([3.5], np.arange(1, 3, 2/num_em), np.arange(1.05, 3.05, 2/num_ptsml))) # Initial a_vals
-    # , 5.18, 7.66
-    ide_position = 0.5
+    # Planets take Kepler-223 values
+    m_vals = np.array([6.6, 4.5, 7.1, 4.3] + [0.01]*num_em + [0.0033]*num_ptsml) * m_earth
+    r_vals = np.array([3.0, 3.4, 5.2, 4.6] + [0.2]*(num_em) + [(100*1e5/AU)/r_earth]*num_ptsml) * r_earth
+    m_star = 1.04 # Msun
+    r_star = 1.52 * r_sun # AU
+    a_vals = np.concatenate(([4, 5, 6.85, 8.57], np.arange(1, 3, 2/num_em), np.arange(1.05, 3.05, 2/num_ptsml))) # Initial a_vals
+    ide_position = 0.1 # a bit above where K-223b sits
     ide_width = 0.02
-    # Sigma_1au = np.tile(np.logspace(1, 4, num=10), 10)[sim_id] # Each row is the same
-    # K_factor = np.repeat(np.logspace(1, 3, num=10), 10)[sim_id] # Each column is the same
-    # Sigma_1au = 3400
-    # K_factor = 100
+
+    Sigma_1au = np.tile(np.logspace(3, 4, num=10), 10)[sim_id] # Each row is the same
+    K_factor = np.repeat(np.logspace(1, 3, num=10), 10)[sim_id] # Each column is the same
+    
+    # Manually set
+    # Sigma_1au = 1000
+    # K_factor = 1000
         
     parameters = {"m_vals": m_vals,
                   "m_star": m_star,
@@ -635,13 +626,12 @@ def run_sim(sim_id):
                   "num_ptsml": num_ptsml,
                   "ide_position": ide_position,
                   "ide_width": ide_width,
-                  # "Sigma_1au": Sigma_1au,
-                  # "K_factor": K_factor
+                  "Sigma_1au": Sigma_1au,
+                  "K_factor": K_factor
                 }
     
     # Sim integration!
-    years = 1000
-    outcome = simulate_system(sim_id, file_path, rock_names, parameters, years=years, integrator="trace")
+    outcome = simulate_system(sim_id, file_path, rock_names, parameters, integrator="trace")
     return (sim_id, m_vals, r_vals, m_star, r_star)
     
 # === MULTIPROCESSING ===    
