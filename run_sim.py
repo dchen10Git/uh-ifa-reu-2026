@@ -24,7 +24,7 @@ m_earth = u.Mearth.to(u.Msun)
 r_sun = u.Rsun.to(u.AU) 
 
 # === RUNNING THE SIM ===       
-dataset_id = 2
+dataset_id = 3
 n_sims = 1
 
 def run_sim(sim_id):
@@ -40,15 +40,14 @@ def run_sim(sim_id):
     planets = {
         "name": ['planet b', 'planet c', 'planet d'],
         "m_vals": [6.6, 4.5, 7.1], # [m_earth]
-        "a_vals": [2, 3.2, 4.85], # [AU]
+        "a_vals": [1, 80, 90], # [AU]
         "r_vals": [6, 6.8, 10.4] # [r_earth]; twice the current values
     }
 
     num_pl = 3
-    num_em = 1
-    num_ptsml = 1
+    num_em = 30
+    num_ptsml = 200
 
-    planets = planets[:num_pl]
     rock_names = planets['name'] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
     # Setting up em/ptsml disk
@@ -56,7 +55,7 @@ def run_sim(sim_id):
     r_em = 0.3 # [r_earth]
     m_ptsml = 0.0033 # [m_earth]
     r_ptsml = (100*1e5/AU)/r_earth # 100 km in [r_earth]
-    small_body_a_vals = np.linspace(0.5, 1.5, num_em+num_ptsml) # equally spaced locations in disk range
+    small_body_a_vals = np.linspace(0.3, 0.9, num_em+num_ptsml) # equally spaced locations in disk range
     em_indices = np.round(np.linspace(0, len(small_body_a_vals) - 1, num=num_em)).astype(int) # picks num_em equally spaced indices
     em_a_vals = small_body_a_vals[em_indices]
     ptsml_a_vals = np.delete(small_body_a_vals, em_indices)
@@ -67,23 +66,16 @@ def run_sim(sim_id):
     r_vals = np.array(planets['r_vals'] + [r_em]*(num_em) + [r_ptsml]*num_ptsml) * r_earth
     m_star = 1.04 # Msun
     r_star = 1.52 * r_sun
-    a_vals = np.concatenate((planets['r_vals'], em_a_vals, ptsml_a_vals)) # Initial a_vals
+    a_vals = np.concatenate((planets['a_vals'], em_a_vals, ptsml_a_vals)) # Initial a_vals
     
     # Gas disk parameters
     ide_position = 0.2 # a bit above where K-223b sits
-    ide_width = 0.02
+    ide_width = 0.1
     
     Sigma_1au = 1700 * np.tile(np.logspace(-1, 1, num=5), 5)[sim_id] # Each row is the same
-    
-    # K_factor = np.repeat(np.logspace(1.5, 2.5, num=5), 5)[sim_id] # Each column is the same
-    # K_factor = 100
-    # alpha = 1.5
-    # h_1au = ((2.7+1.1*alpha) / 0.780 * K_factor)**(-1/2)
-    
     h_1au = np.repeat(np.logspace(-2, -1, num=5), 5)[sim_id] # Each column is the same
     
-    Sigma_1au = 10000
-    h_1au = 0.03
+    pebble_flux = 0
         
     parameters = {"m_vals": m_vals,
                   "m_star": m_star,
@@ -96,8 +88,11 @@ def run_sim(sim_id):
                   "ide_position": ide_position,
                   "ide_width": ide_width,
                   "Sigma_1au": Sigma_1au,
-                  "h_1au": h_1au
-                }
+                  "h_1au": h_1au,
+                  "pebble_flux": pebble_flux,
+                  "m_ptsml": m_ptsml,
+                  "r_ptsml": r_ptsml
+                } 
     
     # Sim integration!
     outcome = reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, integrator="trace")
@@ -136,7 +131,8 @@ if __name__ == "__main__":
             client.close()
             cluster.close()
     else: # Don't use Dask, do one sim
-        sim_id = 0
+        assert n_sims == 1
+        sim_id = 17
         outcomes = [run_sim(sim_id)]
     
     # Save the outcomes
