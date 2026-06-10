@@ -1,17 +1,14 @@
 # === IMPORTS ===
 import numpy as np
 import pandas as pd
-
 from astropy import units as u
 from astropy import constants as const
 from pathlib import Path
 from time import time
 from dask.distributed import Client, LocalCluster
 
-import re
 import os
 import pickle as pkl
-
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -26,13 +23,7 @@ r_earth = u.earthRad.to(u.AU)
 m_earth = u.Mearth.to(u.Msun)
 r_sun = u.Rsun.to(u.AU) 
 
-# === SIM SETUP ===       
-
-num_pl = 3
-num_em = 1
-num_ptsml = 1
-
-rock_names = ['planet b', 'planet c', 'planet d'] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
+# === RUNNING THE SIM ===       
 dataset_id = 2
 n_sims = 1
 
@@ -44,17 +35,41 @@ def run_sim(sim_id):
     base_dir = Path.cwd()
     file_path = base_dir.parent / "sim_results" / f"dataset{dataset_id}" / f"sim{sim_id}.h5"
     
-    # TRAPPIST-1 params: m_vals, r_vals, m_star, r_star, initial_P_ratios = generate_params(planet_names, rng)
-    # ALTERNATIVELY: Specify values below: 
-    
     # === PARAMETERS ===
     # Planets take Kepler-223 b/c/d values
-    m_vals = np.array([6.6, 4.5, 7.1] + [0.03]*num_em + [0.0033]*num_ptsml) * m_earth
+    planets = {
+        "name": ['planet b', 'planet c', 'planet d'],
+        "m_vals": [6.6, 4.5, 7.1], # [m_earth]
+        "a_vals": [2, 3.2, 4.85], # [AU]
+        "r_vals": [6, 6.8, 10.4] # [r_earth]; twice the current values
+    }
+
+    num_pl = 3
+    num_em = 1
+    num_ptsml = 1
+
+    planets = planets[:num_pl]
+    rock_names = planets['name'] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
+    
+    # Setting up em/ptsml disk
+    m_em = 0.03 # [m_earth]
+    r_em = 0.3 # [r_earth]
+    m_ptsml = 0.0033 # [m_earth]
+    r_ptsml = (100*1e5/AU)/r_earth # 100 km in [r_earth]
+    small_body_a_vals = np.linspace(0.5, 1.5, num_em+num_ptsml) # equally spaced locations in disk range
+    em_indices = np.round(np.linspace(0, len(small_body_a_vals) - 1, num=num_em)).astype(int) # picks num_em equally spaced indices
+    em_a_vals = small_body_a_vals[em_indices]
+    ptsml_a_vals = np.delete(small_body_a_vals, em_indices)
+    
+    # Combine values for planets, ems, ptsmls
+    m_vals = np.array(planets['m_vals'] + [m_em]*num_em + [m_ptsml]*num_ptsml) * m_earth
                     # Younger planet is puffier
-    r_vals = np.array(2*[3.0, 3.4, 5.2] + [0.3]*(num_em) + [(100*1e5/AU)/r_earth]*num_ptsml) * r_earth
+    r_vals = np.array(planets['r_vals'] + [r_em]*(num_em) + [r_ptsml]*num_ptsml) * r_earth
     m_star = 1.04 # Msun
     r_star = 1.52 * r_sun
-    a_vals = np.concatenate(([2, 3.2, 4.85], np.linspace(0.55, 1.45, num_em), np.linspace(0.5, 1.5, num_ptsml))) # Initial a_vals
+    a_vals = np.concatenate((planets['r_vals'], em_a_vals, ptsml_a_vals)) # Initial a_vals
+    
+    # Gas disk parameters
     ide_position = 0.2 # a bit above where K-223b sits
     ide_width = 0.02
     
