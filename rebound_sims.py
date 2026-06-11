@@ -332,7 +332,7 @@ def integrate_sim(sim, sim_id, rocks, rock_names, parameters, years, particle_fa
             * stage_data (pd.Dataframe): Simulation data.
             * completed_sim (bool): Whether the integration was fully compelted.
     '''
-    m_vals, r_vals, Sigma_1au, h_1au = parameters["m_vals"], parameters["r_vals"], parameters["Sigma_1au"], parameters["h_1au"]
+    m_vals, r_vals, a_vals, Sigma_1au, h_1au = parameters["m_vals"], parameters["r_vals"], parameters["a_vals"], parameters["Sigma_1au"], parameters["h_1au"]
     num_pl, num_em, num_ptsml = parameters["num_pl"], parameters["num_em"], parameters["num_ptsml"]
     num_rocks = len(rock_names)
     
@@ -340,6 +340,10 @@ def integrate_sim(sim, sim_id, rocks, rock_names, parameters, years, particle_fa
     n_out = 2000 # number of data points to collect
     stage_times = np.linspace(start_time, years+start_time, n_out, endpoint=False)  # all times to integrate over
     tau_pl = years / 4 # planet formation timescale (for 3 planets)
+    
+    # Remove outer planets at the beginning
+    sim.remove(hash='planet c')
+    sim.remove(hash='planet d')
     c_added = False
     d_added = False
     
@@ -363,10 +367,10 @@ def integrate_sim(sim, sim_id, rocks, rock_names, parameters, years, particle_fa
         
         # Place planet c, d sequentially at 1 AU
         if not c_added and t > tau_pl:
-            rocks[1].a = 1
+            sim.add(m=m_vals[1], r=r_vals[1], a=a_vals[1], hash=rock_names[1], primary=sim.particles[0])
             c_added = True
         if not d_added and t > 2*tau_pl:
-            rocks[2].a = 1
+            sim.add(m=m_vals[2], r=r_vals[2], a=a_vals[2], hash=rock_names[2], primary=sim.particles[0])
             d_added = True
         
         # Get list of alive rock names
@@ -586,7 +590,7 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, integ
         
     print(f"Sim {sim_id:<2d} | {years:.3g} years | Sigma_1au: {parameters['Sigma_1au']} | h_1au: {parameters['h_1au']:.4f}", flush=True)
     data = integrate_sim(sim, sim_id, rocks, rock_names, parameters, years, particle_fate, start_time=0)
-    print(f"Sim {sim_id} completed")
+    print(f"Sim {sim_id} completed           ")
     
     # Save data
     save_simulation_run(data, sim_id, file_path, 

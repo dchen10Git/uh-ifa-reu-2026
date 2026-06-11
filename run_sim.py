@@ -40,13 +40,13 @@ def run_sim(sim_id):
     planets = {
         "name": ['planet b', 'planet c', 'planet d'],
         "m_vals": [6.6, 4.5, 7.1], # [m_earth]
-        "a_vals": [1, 800, 900], # [AU]
+        "a_vals": [1, 1, 1], # [AU]
         "r_vals": [6, 6.8, 10.4] # [r_earth]; twice the current values
     }
 
     num_pl = 3
-    num_em = 30
-    num_ptsml = 200
+    num_em = 20
+    num_ptsml = 150
 
     rock_names = planets['name'] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
