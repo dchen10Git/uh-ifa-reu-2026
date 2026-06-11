@@ -303,6 +303,7 @@ def get_tau(rock, rock_name, parameters):
     
     # Add inner disk edge to flip t_a smoothly
     t_a /= np.tanh((3/ide_width)*(rock.d-ide_position))
+    t_a = np.min((1e32, t_a)) # prevent too high values
     
     return -t_a, -t_e, -t_i # Negative so damping
     
@@ -312,17 +313,18 @@ def get_hill_radius(m1, a1, m2, a2, M_star):
     '''Returns mutual hill radius of two planets.'''
     return ((m1+m2)/(3*M_star))**1/3 * (a1+a2)/2
 
-def integrate_sim(sim, rocks, rock_names, parameters, years, sim_id, start_time=0):
+def integrate_sim(sim, sim_id, rocks, rock_names, parameters, years, particle_fate, start_time=0):
     '''Integrates a REBOUND simulation over a given number of years and
     saves the new state of the sim.
     
     Parameters:
         sim (rebound.Simulation): Simulation object to integrate.
+        sim_id: ID of the simulation to keep track.
         rocks (list[rebound.Particles]): List containing rocks (non-stellar particles) in the sim.
         rock_names (list[str]): List containing names of the rocks (non-stellar particles).
         parameters (dict): Dictionary containing planet and star parameters.
         years (float): Number of years to integrate.
-        sim_id: ID of the simulation to keep track.
+        particle_fate (dict): Dictionary containing particle fates for keeping track.
         start_time (float, optional): Start time of the integration, defaults to 0.
         
     Returns:
@@ -335,7 +337,7 @@ def integrate_sim(sim, rocks, rock_names, parameters, years, sim_id, start_time=
     num_rocks = len(rock_names)
     
     # Set up times for integration & data collection
-    n_out = 3000 # number of data points to collect
+    n_out = 2000 # number of data points to collect
     stage_times = np.linspace(start_time, years+start_time, n_out, endpoint=False)  # all times to integrate over
     tau_pl = years / 4 # planet formation timescale (for 3 planets)
     c_added = False
@@ -361,7 +363,7 @@ def integrate_sim(sim, rocks, rock_names, parameters, years, sim_id, start_time=
    
     for i, t in enumerate(stage_times): 
         
-        # place planet c, d sequentially at 1 AU
+        # Place planet c, d sequentially at 1 AU
         if not c_added and t > tau_pl:
             rocks[1].a = 1
             c_added = True
@@ -369,22 +371,33 @@ def integrate_sim(sim, rocks, rock_names, parameters, years, sim_id, start_time=
             rocks[2].a = 1
             d_added = True
         
-        alive_rocks = []
-        
+        # Get list of alive rock names
+        alive_rock_names = []
         for j, name in enumerate(rock_names):
-                
+            
             try: # Prevent error for removed particles
                 rock = sim.particles[name]
+                alive_rock_names.append(name)
+            
+            except rebound.ParticleNotFound:
+                pass
+        
+        # All particles disappeared
+        if not alive_rock_names:
+            print("All particles removed")
+            break
                 
+        # Loop through alive rocks
+        for j, name in enumerate(rock_names):
+            if name in alive_rock_names:
+                rock = sim.particles[name]
+                
+                # Update timescales
                 tau_a, tau_e, tau_i = get_tau(rock, name, parameters)
                 rock.params["tau_a"] = tau_a
                 rock.params["tau_e"] = tau_e
                 rock.params["tau_inc"] = tau_i
-        
-                hist["tau_a"][i, j] = tau_a
-                hist["tau_e"][i, j] = tau_e
-                hist["tau_i"][i, j] = tau_i
-                                
+                    
                 # Save data
                 hist["a"][i, j] = rock.a
                 hist["e"][i, j] = rock.e
@@ -392,34 +405,33 @@ def integrate_sim(sim, rocks, rock_names, parameters, years, sim_id, start_time=
                 hist["P"][i, j] = rock.P
                 hist["l"][i, j] = rock.l
                 hist["pomega"][i, j] = rock.pomega
+                hist["tau_a"][i, j] = tau_a
+                hist["tau_e"][i, j] = tau_e
+                hist["tau_i"][i, j] = tau_i
 
-                if j < num_pl-1: # don't record period ratio for last planet
-                    hist["P_ratio"][i, j] = rocks[j+1].P / rock.P # index might be wrong if planet is gone
-                
-                # Remove particle if planet goes into star
+                if (name == 'planet b' and 'planet c' in alive_rock_names) or (name == 'planet c' and 'planet d' in alive_rock_names):
+                    hist["P_ratio"][i, j] = rocks[j+1].P / rock.P
+                        
+                # Remove particle if rock is out of bounds
                 if rock.d < 0.01:
                     sim.remove(hash=name)
+                    alive_rock_names.remove(name)
+                    particle_fate[name] = 'fell into star (d < 0.01)'
                     print(f"{name} removed; fell into star")
-                elif rock.d > 100:
+                elif rock.d > 100 and not ('planet' in name):
                     sim.remove(hash=name)
-                    print(f"{name} removed; ejected from system")
-                else:
-                    alive_rocks.append(rock)
-                    
-            except rebound.ParticleNotFound as error:
-                pass
-
-        sim.dt = np.min([rock.P / 30 for rock in alive_rocks]) # 1/30 of innermost particle 
-            
-        print(f"Sim {sim_id:<2d} | Step {i} of {len(stage_times)}      ", end="\r", flush=True)
-        sim.integrate(t)    
+                    alive_rock_names.remove(name)
+                    particle_fate[name] = 'ejected from system (d > 100)'
+                    print(f"{name} removed; ejected from system (d > 100)")
+                elif rock.d > 1000 and 'planet' in name:
+                    sim.remove(hash=name)
+                    alive_rock_names.remove(name)
+                    particle_fate[name] = 'ejected from system (d > 1000)'
+                    print(f"{name} removed; ejected from system (d > 1000)")            
         
-        # # Stop sim if any planet is gone       
-        # for i_pl in range(num_pl):
-        #     if np.isnan(hist["a"][i, i_pl]):
-        #         completed_sim = False
-        #         print(f"Sim {sim_id:<2d} | {rock_names[i_pl]} collided, simulation ends.")
-        #         break
+        sim.dt = np.min([sim.particles[name].P / 30 for name in alive_rock_names]) # 1/30 of innermost particle 
+        print(f"Sim {sim_id:<2d} | Step {i} of {len(stage_times)}      ", end="\r", flush=True)
+        sim.integrate(t)
 
         # Stop simulation early if failed
         if not completed_sim:
@@ -479,14 +491,14 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, integ
     num_rocks = len(rock_names)
     
     # Add rocks 
-    hash_to_name = {}
+    hash_to_name = {int(sim.particles[0].hash.value): 'star'} # initialize dict with star hash
     for i in range(num_rocks):
         sim.add(m=m_vals[i], r=r_vals[i], a=a_vals[i], hash=rock_names[i], primary=sim.particles[0])
         
         # Sync hashes to names
         h = int(sim.particles[-1].hash.value)
         hash_to_name[h] = rock_names[i]
-    
+        
     sim.N_active = num_pl + num_em # Massive particles which mutually interact gravitationally
     sim.testparticle_type = 1 # Ptsmls will not interact with each other
         
@@ -502,7 +514,7 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, integ
             "ptsmls": 0,
             "mass": 0.
         }
-        for name in rock_names
+        for name in (['star'] + rock_names)
     }
     
     def collision_resolve(sim_pointer, collided_particles_index):
@@ -521,10 +533,10 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, integ
             survivor_idx = j
             victim_idx = i
             remove_code = 1
-
+            
         survivor_name = hash_to_name[int(ps[survivor_idx].hash.value)]
         victim_name = hash_to_name[int(ps[victim_idx].hash.value)]
-
+                    
         # Log collision
         collision_log.append({
             "time": sim.t,
@@ -549,18 +561,13 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, integ
         ps[survivor_idx] = (ps[survivor_idx] * ps[survivor_idx].m + ps[victim_idx] * ps[victim_idx].m) / (ps[survivor_idx].m + ps[victim_idx].m)
         ps[survivor_idx].m = ps[survivor_idx].m + ps[victim_idx].m
         ps[survivor_idx].r = (ps[survivor_idx].r**3 + ps[victim_idx].r**3)**(1/3)
-
-
-        print(
-            f"collision between {survivor_idx}, {victim_idx}:",
-            ps[survivor_idx].hash.value,
-            ps[victim_idx].hash.value
-        )    
-        
+            
+        print(f"Collision; survivor: {survivor_name}; victim: {victim_name}")
+            
         return remove_code
     
-    sim.collision_resolve = "merge"
-    # sim.collision_resolve = collision_resolve
+    sim.collision_resolve = collision_resolve # default is "merge"
+    # sim.collision_resolve = "merge"
 
     # Move to center of momentum
     sim.move_to_com()
@@ -571,9 +578,6 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, integ
     mof = rebx.load_force("modify_orbits_forces")
     rebx.add_force(mof)
     
-    # mof.params["ide_position"] = ide_position
-    # mof.params["ide_width"] = ide_width
-
     if years is None: # Set to 2*tau_a of the first planet
         years = -2*get_tau(rocks[0], rock_names[num_pl-1], parameters)[0]
 
@@ -583,8 +587,8 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, integ
         print(f"Sim {sim_id:<2d} | Years clipped to {years:.3e}")
         
     print(f"Sim {sim_id:<2d} | {years:.3g} years | Sigma_1au: {parameters['Sigma_1au']} | h_1au: {parameters['h_1au']:.4f}", flush=True)
-    data, complete_sim = integrate_sim(sim, rocks, rock_names, parameters, years, sim_id, start_time=0)
-    print(f"Sim {sim_id:<2d} | Sim complete? {complete_sim}")
+    data, completed_sim = integrate_sim(sim, sim_id, rocks, rock_names, parameters, years, particle_fate, start_time=0)
+    print(f"Sim {sim_id:<2d} | Sim completed? {completed_sim}")
     
     # Save data
     save_simulation_run(data, sim_id, file_path, 
@@ -593,3 +597,5 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, integ
                                       "collision_log": collision_log,
                                       "particle_fate": particle_fate,
                                       "accretion_stats": accretion_stats} | parameters)
+    
+    return completed_sim

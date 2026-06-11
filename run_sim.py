@@ -40,13 +40,13 @@ def run_sim(sim_id):
     planets = {
         "name": ['planet b', 'planet c', 'planet d'],
         "m_vals": [6.6, 4.5, 7.1], # [m_earth]
-        "a_vals": [1, 80, 90], # [AU]
+        "a_vals": [1, 800, 900], # [AU]
         "r_vals": [6, 6.8, 10.4] # [r_earth]; twice the current values
     }
 
     num_pl = 3
-    num_em = 3
-    num_ptsml = 20
+    num_em = 1
+    num_ptsml = 1
 
     rock_names = planets['name'] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
@@ -55,7 +55,7 @@ def run_sim(sim_id):
     r_em = 0.3 # [r_earth]
     m_ptsml = 0.0033 # [m_earth]
     r_ptsml = (100*1e5/AU)/r_earth # 100 km in [r_earth]
-    small_body_a_vals = np.linspace(0.3, 0.9, num_em+num_ptsml) # equally spaced locations in disk range
+    small_body_a_vals = np.linspace(0.4, 0.9, num_em+num_ptsml) # equally spaced locations in disk range
     em_indices = np.round(np.linspace(0, len(small_body_a_vals) - 1, num=num_em)).astype(int) # picks num_em equally spaced indices
     em_a_vals = small_body_a_vals[em_indices]
     ptsml_a_vals = np.delete(small_body_a_vals, em_indices)
@@ -74,7 +74,8 @@ def run_sim(sim_id):
     
     Sigma_1au = 1700 * np.tile(np.logspace(-1, 1, num=5), 5)[sim_id] # Each row is the same
     h_1au = np.repeat(np.logspace(-2, -1, num=5), 5)[sim_id] # Each column is the same
-    
+    Sigma_1au = 17000
+    h_1au = 0.02
     pebble_flux = 0
         
     parameters = {"m_vals": m_vals,
@@ -95,8 +96,8 @@ def run_sim(sim_id):
                 } 
     
     # Sim integration!
-    outcome = reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, integrator="trace")
-    return (sim_id, m_vals, r_vals, m_star, r_star)
+    completed_sim = reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, integrator="trace")
+    return (sim_id, completed_sim)
     
 if __name__ == "__main__":
     dataset_dir = Path.cwd().parent / "sim_results" / f"dataset{dataset_id}"
