@@ -302,7 +302,7 @@ def get_tau(rock, rock_name, parameters):
         t_i = t_0 / (1/2 * (2*E/np.pi*e + 8/(3*np.pi)*inc + eta)) # Adachi 1976 Eq. 4.13
     
     # Add inner disk edge to flip t_a smoothly
-    t_a *= np.tanh((3/ide_width)*(rock.d-ide_position))
+    t_a /= np.tanh((3/ide_width)*(rock.d-ide_position))
     
     return -t_a, -t_e, -t_i # Negative so damping
     
@@ -335,7 +335,7 @@ def integrate_sim(sim, rocks, rock_names, parameters, years, sim_id, start_time=
     num_rocks = len(rock_names)
     
     # Set up times for integration & data collection
-    n_out = 2000 # number of data points to collect
+    n_out = 3000 # number of data points to collect
     stage_times = np.linspace(start_time, years+start_time, n_out, endpoint=False)  # all times to integrate over
     tau_pl = years / 4 # planet formation timescale (for 3 planets)
     c_added = False
@@ -403,22 +403,23 @@ def integrate_sim(sim, rocks, rock_names, parameters, years, sim_id, start_time=
                 elif rock.d > 100:
                     sim.remove(hash=name)
                     print(f"{name} removed; ejected from system")
-                    
-                alive_rocks.append(rock)
+                else:
+                    alive_rocks.append(rock)
                     
             except rebound.ParticleNotFound as error:
                 pass
 
-        sim.dt = np.min([rock.P / 20 for rock in alive_rocks]) # 1/20 of innermost particle 
+        sim.dt = np.min([rock.P / 30 for rock in alive_rocks]) # 1/30 of innermost particle 
+            
         print(f"Sim {sim_id:<2d} | Step {i} of {len(stage_times)}      ", end="\r", flush=True)
         sim.integrate(t)    
         
-        # Stop sim if any planet is gone       
-        for i_pl in range(num_pl):
-            if np.isnan(hist["a"][i, i_pl]):
-                completed_sim = False
-                print(f"Sim {sim_id:<2d} | {rock_names[i_pl]} collided, simulation ends.")
-                break
+        # # Stop sim if any planet is gone       
+        # for i_pl in range(num_pl):
+        #     if np.isnan(hist["a"][i, i_pl]):
+        #         completed_sim = False
+        #         print(f"Sim {sim_id:<2d} | {rock_names[i_pl]} collided, simulation ends.")
+        #         break
 
         # Stop simulation early if failed
         if not completed_sim:
@@ -549,9 +550,17 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, integ
         ps[survivor_idx].m = ps[survivor_idx].m + ps[victim_idx].m
         ps[survivor_idx].r = (ps[survivor_idx].r**3 + ps[victim_idx].r**3)**(1/3)
 
+
+        print(
+            f"collision between {survivor_idx}, {victim_idx}:",
+            ps[survivor_idx].hash.value,
+            ps[victim_idx].hash.value
+        )    
+        
         return remove_code
     
-    sim.collision_resolve = collision_resolve
+    sim.collision_resolve = "merge"
+    # sim.collision_resolve = collision_resolve
 
     # Move to center of momentum
     sim.move_to_com()

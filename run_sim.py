@@ -45,8 +45,8 @@ def run_sim(sim_id):
     }
 
     num_pl = 3
-    num_em = 30
-    num_ptsml = 200
+    num_em = 3
+    num_ptsml = 20
 
     rock_names = planets['name'] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
@@ -132,7 +132,7 @@ if __name__ == "__main__":
             cluster.close()
     else: # Don't use Dask, do one sim
         assert n_sims == 1
-        sim_id = 17
+        sim_id = 4
         outcomes = [run_sim(sim_id)]
     
     # Save the outcomes
