@@ -45,8 +45,8 @@ def run_sim(sim_id):
     }
 
     num_pl = 3
-    num_em = 1
-    num_ptsml = 1
+    num_em = 30
+    num_ptsml = 200
 
     rock_names = planets['name'] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
@@ -74,8 +74,7 @@ def run_sim(sim_id):
     
     Sigma_1au = 1700 * np.tile(np.logspace(-1, 1, num=5), 5)[sim_id] # Each row is the same
     h_1au = np.repeat(np.logspace(-2, -1, num=5), 5)[sim_id] # Each column is the same
-    Sigma_1au = 17000
-    h_1au = 0.02
+
     pebble_flux = 0
         
     parameters = {"m_vals": m_vals,
@@ -96,8 +95,7 @@ def run_sim(sim_id):
                 } 
     
     # Sim integration!
-    completed_sim = reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, integrator="trace")
-    return (sim_id, completed_sim)
+    reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, integrator="trace")
     
 if __name__ == "__main__":
     dataset_dir = Path.cwd().parent / "sim_results" / f"dataset{dataset_id}"
@@ -125,27 +123,16 @@ if __name__ == "__main__":
         try:
             # Submit all simulations as Dask futures
             futures = [client.submit(run_sim, sim_id) for sim_id in range(n_sims)]
-            
-            # Gather results (blocks until all futures are complete)
-            outcomes = client.gather(futures)
+
         finally:
             client.close()
             cluster.close()
     else: # Don't use Dask, do one sim
         assert n_sims == 1
-        sim_id = 4
-        outcomes = [run_sim(sim_id)]
+        sim_id = 20
+        run_sim(sim_id)
     
-    # Save the outcomes
-    outcome_file = f"../sim_results/dataset{dataset_id}/outcomes.pkl"
-    with open(outcome_file, "wb") as f:
-        pkl.dump(outcomes, f)
-        print(f"Saved to {outcome_file}")
-    
-    # Load to verify
-    with open(outcome_file, "rb") as f:
-        sim_outcomes = pkl.load(f)
-    
+    print("Simulation(s) saved")
     print(f'Time elapsed: {np.round(time()-tstart)} sec')
     
 # To run, use python3 -W ignore run_sim.py
