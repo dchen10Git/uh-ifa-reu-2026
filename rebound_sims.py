@@ -75,7 +75,9 @@ def save_simulation_run(stage_data, sim_id, file_path, sim_metadata=None):
             storer = store.get_storer(key)
             storer.attrs.planet_name = planet_name
             storer.attrs.sim_id = sim_id
-         
+    
+    print("Simulation(s) saved")
+    
 def load_simulation_run(file_path):
     '''Load a simulation for analysis.
     

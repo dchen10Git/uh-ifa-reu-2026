@@ -108,7 +108,7 @@ if __name__ == "__main__":
     tstart = time()
 
     # === MULTIPROCESSING ===    
-    multiprocess = False
+    multiprocess = True
     
     if multiprocess:
         # Start a local Dask cluster
@@ -124,6 +124,8 @@ if __name__ == "__main__":
             # Submit all simulations as Dask futures
             futures = [client.submit(run_sim, sim_id) for sim_id in range(n_sims)]
 
+            results = client.gather(futures)
+            
         finally:
             client.close()
             cluster.close()
@@ -132,7 +134,6 @@ if __name__ == "__main__":
         sim_id = 20
         run_sim(sim_id)
     
-    print("Simulation(s) saved")
     print(f'Time elapsed: {np.round(time()-tstart)} sec')
     
 # To run, use python3 -W ignore run_sim.py
