@@ -70,7 +70,7 @@ def run_sim(sim_id):
     
     Sigma_1au = 1700 * np.tile(np.logspace(-1, 1, num=10), 10)[sim_id] # Each row is the same
     h_1au = np.repeat(np.logspace(-2, -1, num=10), 10)[sim_id] # Each column is the same
-    alpha = 1
+    alpha = 1.5
     
     pebble_flux = 0
         
