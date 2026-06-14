@@ -20,12 +20,12 @@ def find_best_twoBR_pq(m_star, b, c, p_max=10, crit="Delta"):
         
     best_p, best_q = 100, 100
     
+    # Use Kepler's law to find period values
+    P_b = (b['a'].iloc[-1]**3 / m_star)**(1/2)
+    P_c = (c['a'].iloc[-1]**3 / m_star)**(1/2)
+    
     for p in range(1, p_max+1):
-        for q in range(1, p):
-            # Use Kepler's law to find period values
-            P_b = (b['a'].iloc[-1]**3 / m_star)**(1/2)
-            P_c = (c['a'].iloc[-1]**3 / m_star)**(1/2)
-            
+        for q in range(1, p+1): # p+1 for 1:1 case
             if crit == 'Delta':
                 Delta = (P_c/P_b)/(p/q) - 1
                 if np.abs(Delta) < np.abs(best_Delta):
@@ -48,6 +48,9 @@ with open("fg_library.pkl", "rb") as f:
     fg_lib = pickle.load(f)
     
 def twoBR_angle(b, c, p, q):
+    if p == q == 1:
+        return b['l'] - c['l']
+    
     f, g = fg_lib[(p, q)]
     pomega_hat = np.arctan2((f*b['e']*np.sin(b['pomega']) + g*c['e']*np.sin(c['pomega'])), (f*b['e']*np.cos(b['pomega']) + g*c['e']*np.cos(c['pomega'])))
     return q*b['l'] - p*c['l'] + (p-q)*pomega_hat

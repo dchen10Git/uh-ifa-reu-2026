@@ -1,14 +1,11 @@
 # === IMPORTS ===
 import numpy as np
-import pandas as pd
 from astropy import units as u
-from astropy import constants as const
 from pathlib import Path
 from time import time
 from dask.distributed import Client, LocalCluster
 
 import os
-import pickle as pkl
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -24,8 +21,8 @@ m_earth = u.Mearth.to(u.Msun)
 r_sun = u.Rsun.to(u.AU) 
 
 # === RUNNING THE SIM ===       
-dataset_id = 3
-n_sims = 1
+dataset_id = 4
+n_sims = 100
 
 def run_sim(sim_id):
     # Different rng for each sim
@@ -36,17 +33,16 @@ def run_sim(sim_id):
     file_path = base_dir.parent / "sim_results" / f"dataset{dataset_id}" / f"sim{sim_id}.h5"
     
     # === PARAMETERS ===
-    # Planets take Kepler-223 b/c/d values
     planets = {
         "name": ['planet b', 'planet c', 'planet d'],
-        "m_vals": [6.6, 4.5, 7.1], # [m_earth]
-        "a_vals": [1, 1, 1], # [AU]
-        "r_vals": [6, 6.8, 10.4] # [r_earth]; twice the current values
+        "m_vals": [5, 5, 5], # [m_earth]
+        "a_vals": [1.2, 1.2, 1.2], # [AU]
+        "r_vals": [10, 10, 10] # [r_earth]; twice the current values
     }
 
     num_pl = 3
-    num_em = 20
-    num_ptsml = 150
+    num_em = 25
+    num_ptsml = 200
 
     rock_names = planets['name'] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
@@ -55,7 +51,7 @@ def run_sim(sim_id):
     r_em = 0.3 # [r_earth]
     m_ptsml = 0.0033 # [m_earth]
     r_ptsml = (100*1e5/AU)/r_earth # 100 km in [r_earth]
-    small_body_a_vals = np.linspace(0.4, 0.9, num_em+num_ptsml) # equally spaced locations in disk range
+    small_body_a_vals = np.linspace(0.4, 1, num_em+num_ptsml) # equally spaced locations in disk range
     em_indices = np.round(np.linspace(0, len(small_body_a_vals) - 1, num=num_em)).astype(int) # picks num_em equally spaced indices
     em_a_vals = small_body_a_vals[em_indices]
     ptsml_a_vals = np.delete(small_body_a_vals, em_indices)
@@ -69,12 +65,13 @@ def run_sim(sim_id):
     a_vals = np.concatenate((planets['a_vals'], em_a_vals, ptsml_a_vals)) # Initial a_vals
     
     # Gas disk parameters
-    ide_position = 0.2 # a bit above where K-223b sits
+    ide_position = 0.2
     ide_width = 0.1
     
-    Sigma_1au = 1700 * np.tile(np.logspace(-1, 1, num=5), 5)[sim_id] # Each row is the same
-    h_1au = np.repeat(np.logspace(-2, -1, num=5), 5)[sim_id] # Each column is the same
-
+    Sigma_1au = 1700 * np.tile(np.logspace(-1, 1, num=10), 10)[sim_id] # Each row is the same
+    h_1au = np.repeat(np.logspace(-2, -1, num=10), 10)[sim_id] # Each column is the same
+    alpha = 1.5
+    
     pebble_flux = 0
         
     parameters = {"m_vals": m_vals,
@@ -89,6 +86,7 @@ def run_sim(sim_id):
                   "ide_width": ide_width,
                   "Sigma_1au": Sigma_1au,
                   "h_1au": h_1au,
+                  "alpha": alpha,
                   "pebble_flux": pebble_flux,
                   "m_ptsml": m_ptsml,
                   "r_ptsml": r_ptsml
@@ -131,7 +129,7 @@ if __name__ == "__main__":
             cluster.close()
     else: # Don't use Dask, do one sim
         assert n_sims == 1
-        sim_id = 20
+        sim_id = 97
         run_sim(sim_id)
     
     print(f'Time elapsed: {np.round(time()-tstart)} sec')
