@@ -41,10 +41,10 @@ def run_sim(sim_id):
     }
 
     num_pl = 3
-    num_em = 1
-    num_ptsml = 5
+    num_em = 0
+    num_ptsml = 0
 
-    rock_names = planets['name'] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
+    rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
     # Setting up em/ptsml disk
     m_em = 0.03 # [m_earth]
@@ -57,20 +57,22 @@ def run_sim(sim_id):
     ptsml_a_vals = np.delete(small_body_a_vals, em_indices)
     
     # Combine values for planets, ems, ptsmls
-    m_vals = np.array(planets['m_vals'] + [m_em]*num_em + [m_ptsml]*num_ptsml) * m_earth
+    m_vals = np.array(planets['m_vals'][:num_pl] + [m_em]*num_em + [m_ptsml]*num_ptsml) * m_earth
                     # Younger planet is puffier
-    r_vals = np.array(planets['r_vals'] + [r_em]*(num_em) + [r_ptsml]*num_ptsml) * r_earth
+    r_vals = np.array(planets['r_vals'][:num_pl] + [r_em]*(num_em) + [r_ptsml]*num_ptsml) * r_earth
     m_star = 1. # Msun
     r_star = 1.5 * r_sun
-    a_vals = np.concatenate((planets['a_vals'], em_a_vals, ptsml_a_vals)) # Initial a_vals
+    a_vals = np.concatenate((planets['a_vals'][:num_pl], em_a_vals, ptsml_a_vals)) # Initial a_vals
     
     # Gas disk parameters
-    ide_position = 0.2
-    ide_width = 0.1
-    
+    ide_position = 0.2 # Width is determined with formula
     Sigma_1au = 1700 * np.tile(np.logspace(-1, 1, num=10), 10)[sim_id] # Each row is the same
     h_1au = np.repeat(np.logspace(-2, -1, num=10), 10)[sim_id] # Each column is the same
     alpha = 1
+    beta = 0.25
+    
+    Sigma_1au = 1000
+    h_1au = 0.05
     
     pebble_flux = 0
         
@@ -83,17 +85,17 @@ def run_sim(sim_id):
                   "num_em": num_em,
                   "num_ptsml": num_ptsml,
                   "ide_position": ide_position,
-                  "ide_width": ide_width,
                   "Sigma_1au": Sigma_1au,
                   "h_1au": h_1au,
                   "alpha": alpha,
+                  "beta": beta,
                   "pebble_flux": pebble_flux,
                   "m_ptsml": m_ptsml,
                   "r_ptsml": r_ptsml
                 } 
     
     # Sim integration!
-    reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, integrator="trace")
+    reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, years=1e7, integrator="whfast")
     
 if __name__ == "__main__":
     dataset_dir = Path.cwd().parent / "sim_results" / f"dataset{dataset_id}"
@@ -129,7 +131,7 @@ if __name__ == "__main__":
             cluster.close()
     else: # Don't use Dask, do one sim
         assert n_sims == 1
-        sim_id = 82
+        sim_id = 0
         run_sim(sim_id)
     
     print(f'Time elapsed: {np.round(time()-tstart)} sec')

@@ -51,7 +51,8 @@ def twoBR_angle(b, c, p, q):
     if p == q == 1:
         return b['l'] - c['l']
     
-    # "Classical" resonant angle
+    # 2 DOF resonant angles
+    # return q*b['l'] - p*c['l'] + (p-q)*b['pomega']
     # return q*b['l'] - p*c['l'] + (p-q)*c['pomega']
     
     f, g = fg_lib[(p, q)]

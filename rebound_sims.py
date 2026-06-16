@@ -1,15 +1,12 @@
 # === IMPORTS ===
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import rebound
 import reboundx
 from astropy import units as u
 import re
 import warnings
 warnings.filterwarnings('ignore')
-
-import huang_ide
 
 # === UNIT CONVERSIONS ===
 AU = u.AU.to(u.cm) # cm per AU
@@ -113,198 +110,52 @@ def load_simulation_run(file_path):
     
     return result, metadata
 
-# === PARAMETER GENERATION ===
+# === RUNNING THE SIM ===
 
-def parse_entry(entry):
-    """Parses a given string with uncertainties. 
-    
-    Converts asymmetric uncertainties into symmetric uncertainties if needed.
-        
-    Parameters:
-        entry (str): String of the form '1.0±0.01' or '1.04 +0.01 -0.02'
-    
-    Returns:
-        tuple: mu (float), sigma (float)
-    """
-    
-    if pd.isna(entry):
-        raise ValueError("Entry is NaN")
-    
-    # Remove extra whitespace
-    entry = entry.strip()
-    
-    # Remove spaces for easier parsing
-    entry_nospace = entry.replace(" ", "")
-    
-    # Case 1: symmetric uncertainty (±)
-    match_pm = re.match(r"^([0-9.+\-eE]+)±([0-9.+\-eE]+)$", entry_nospace)
-    if match_pm:
-        mu = float(match_pm.group(1))
-        sigma = float(match_pm.group(2))
-        return mu, sigma
-    
-    # Case 2: asymmetric uncertainty (+x -y)
-    match_asym = re.match(
-        r"^([0-9.+\-eE]+)\+([0-9.+\-eE]+)\-([0-9.+\-eE]+)$",
-        entry_nospace
-    )
-    if match_asym:
-        mu = float(match_asym.group(1))
-        sigma_plus = float(match_asym.group(2))
-        sigma_minus = float(match_asym.group(3))
-        
-        # Convert asymmetric → effective symmetric σ
-        sigma = 0.5 * (sigma_plus + sigma_minus)
-        
-        return mu, sigma
-    
-    raise ValueError(f"Could not parse entry: {entry}")
-
-# For TRAPPIST-1
-def generate_params_from_csv(csv_file, params, random=False):
-    """
-    Reads parameter CSV downloaded from the NASA Exoplanet archive of
-    TRAPPIST-1 parameters and returns randomly drawn params.
-    """
-    
-    df = pd.read_csv(csv_file)
-    
-    # Set index to Source column for easy lookup
-    df = df.set_index("Source")
-    
-    # Extract Agol et al. 2021 column
-    col = "Agol et al. 2021"
-    
-    params_dict = {}
-    
-    for param in params:
-        # Parse parameter
-        mu, sigma = parse_entry(df.loc[param, col])
-    
-        # Draw Gaussian samples if we want them to be random
-        if random:
-            samples = np.random.normal(mu, sigma)
-        else:
-            samples = mu
-
-        # Add to dict
-        params_dict[param] = samples
-    
-    return params_dict
-
-# For TRAPPIST-1
-def generate_params(planet_names, rng):
-    # Nested dict containing params for each planet in sim
-    # Randomly generate mass, radius, & semimajor axis values
-    planet_params = {f"{planet_name}": generate_params_from_csv(f'TRAPPIST-1_params/TRAPPIST-1_{planet_name}_planet_params.csv', ('a (au)', 'Rp (R⨁)', 'Mp (M⨁)'), random=False) for planet_name in planet_names}
-    stellar_params = generate_params_from_csv('TRAPPIST-1_params/TRAPPIST-1_stellar_params.csv', ('R✶ (R⦿)', 'M✶ (M⦿)'), random=False)
-    
-    # Define planet masses (m)
-    m_vals = np.array([planet_params[planet_name]['Mp (M⨁)'] for planet_name in planet_names])
-    m_vals *= m_earth # convert to Msun
-
-    # Define planet radii (r)
-    r_vals = np.array([planet_params[planet_name]['Rp (R⨁)'] for planet_name in planet_names])
-    r_vals *= r_earth # convert to AU
-
-    # Define stellar parameters
-    m_star = stellar_params['M✶ (M⦿)']
-    r_star = stellar_params['R✶ (R⦿)'] * r_sun
-
-    # Uniform random initial period ratios just above 2:1
-    initial_P_ratios = rng.uniform(1.53, 1.55, size=len(planet_names)-1) 
-    initial_P_ratios = [1.53, 1.53, 1.8] # for b/c/d/e in early cavity infall model
-                                    
-    return m_vals, r_vals, m_star, r_star, initial_P_ratios
-
-# From Izidoro 2014
-def get_tau(rock, rock_name, parameters):
+def tau_gas(rock, parameters):
     """Calculates damping timescales given parameters for one rock.
-    Based on formulas from Izidoro 2014, Brasser 2007, and Adachi 1976.
-    Planets and embryos are affected by migration while planetesimals
-    are affected by gas drag.
+    Based on formulas from Adachi 1976. Should be applied on planetesimals.
     Note that negative tau indicates damping for modify_orbits_forces.
 
     Args:
         rock (rebound.particle.Particle): REBOUND particle object to 
         calculate damping timescales for.
-        rock_name (str): Name of the particle.
         parameters (dict): Dictionary containing planet and star parameters.
 
     Returns:
         tuple: Tuple containing tau_a, tau_e, tau_i for the given object,
         in units of years
-    """                                      # alpha is the flaring index for Type I mig
-    Sigma_1au, h_1au, ide_position, ide_width, alpha = parameters['Sigma_1au'], parameters['h_1au'], parameters['ide_position'], parameters['ide_width'], parameters['alpha']
+    """                                     
+    Sigma_1au, h_1au, beta = parameters['Sigma_1au'], parameters['h_1au'], parameters['beta']
     
-    m_p = rock.m
-    r = rock.d # distance to the star
-    a_p = rock.a
+    m_p = rock.m * u.Msun.to(u.g) # convert to g
+    r = rock.d * AU # distance to the star, converted to cm
+    R_p = rock.r * AU # cm # radius, converted to cm
     e = rock.e
     inc = rock.inc
-    Omega_k = 2*np.pi/rock.P # Keplerian orbital frequency
+    Omega_k = 2*np.pi/rock.P / yr # Keplerian orbital frequency, converted to 1/s
+        
+    h = h_1au * (r/AU)**beta # scale height in AU
+    v_K = r*Omega_k # cm/s
     
-    # f_a, f_e = huang_ide.f_functions()
+    rho_p = m_p / (4/3 * np.pi * R_p**3) # Ptsml density (mass / vol) in g/cm^3
+    C_d = 0.44 # for km-sized ptsmls and small Mach number (see Brasser 2007) 
+    rho_g = Sigma_1au/(np.sqrt(np.pi)*(h_1au*AU)) * (r/AU)**(-11/4) # g/cm^3
+    eta = (11/16)*(h*AU/r)**2
     
-    # Type I migration
-    if 'planet' in rock_name:
-        Sigma_1au *= AU**2 / Msun # Converted to Msun/AU^2 from g/cm^2
-        Sigma_g = Sigma_1au * r**(-3/2)
-        h = h_1au * r**1.25 # scale height
-        
-        t_a = (2/(2.7+1.1*alpha)) * (1/m_p) * (1/(Sigma_g*a_p**2)) * (h/r)**2 * ((1 + (e*r/(1.3*h))**5) / (1 - (e*r/(1.1*h))**4)) / Omega_k
-        t_wave = (1/m_p) * (1/(Sigma_g*a_p**2)) * (h/r)**4 / Omega_k
-        t_e = (t_wave/0.780) * (1 - 0.14*(e/(h/r))**2 + 0.06 * (e/(h/r))**3 + 0.18 * (e/(h/r)) * (inc/(h/r))**2)
-        # t_e=1e32
-        t_i = (t_wave/0.544) * (1 - 0.3*(inc/(h/r))**2 + 0.24 * (inc/(h/r))**3 + 0.14 * (e/(h/r))**2 * (inc/(h/r)))
+    K = 2.157
+    E = 1.211
+    alpha_rho = 3 # In Adachi, gas density index (not surface density)
     
-    # Type I migration
-    elif 'embryo' in rock_name:   
-        Sigma_1au *= AU**2 / Msun # Converted to Msun/AU^2 from g/cm^2        
-        Sigma_g = Sigma_1au * r**(-3/2)
-        h = h_1au * r**1.25 # scale height
-        
-        t_a = (2/(2.7+1.1*alpha)) * (1/m_p) * (1/(Sigma_g*a_p**2)) * (h/r)**2 * ((1 + (e*r/(1.3*h))**5) / (1 - (e*r/(1.1*h))**4)) / Omega_k
-        t_wave = (1/m_p) * (1/(Sigma_g*a_p**2)) * (h/r)**4 / Omega_k
-        t_e = (t_wave/0.780) * (1 - 0.14*(e/(h/r))**2 + 0.06 * (e/(h/r))**3 + 0.18 * (e/(h/r)) * (inc/(h/r))**2)
-        t_i = (t_wave/0.544) * (1 - 0.3*(inc/(h/r))**2 + 0.24 * (inc/(h/r))**3 + 0.14 * (e/(h/r))**2 * (inc/(h/r)))
-           
-    # Aerodynamic gas drag 
-    elif 'ptsml' in rock_name:
-        Sigma_g = Sigma_1au * (r/AU)**(-3/2) # g/cm^2
-        h = h_1au * (r/AU)**1.25 # scale height in AU
-        v_K = r*Omega_k # cm/s
-        
-        m_p *= u.Msun.to(u.g) # convert to g
-        R_p = rock.r * AU # cm
-        rho_p = m_p / (4/3 * np.pi * R_p**3) # Ptsml density (mass / vol) in g/cm^3
-        C_d = 0.44 # for km-sized ptsmls and small Mach number (see Brasser 2007) 
-        rho_g = Sigma_1au/(np.sqrt(np.pi)*(h_1au*AU)) * (r/AU)**(-11/4) # g/cm^3
-        eta = (11/16)*(h*AU/r)**2
-        
-        K = 2.157
-        E = 1.211
-        alpha = 3 # constant in Adachi model (NOT flaring index)
-        
-        t_0 = (8*rho_p*R_p) / (3*C_d*rho_g*v_K) / yr # yr
-        t_a = t_0 / (2 * ((2*(2*E+K)/(3*np.pi)*e + 2/np.pi*inc + eta) * eta + 
-                            (((2*E+K)/(9*np.pi)) * alpha + (68*E-11*K)/(54*np.pi))* (e**3) +
-                            (inc**3)/(2*np.pi))) # Adachi 1976 Eq. 4.11
-        t_e = t_0 / ((2*E)/(np.pi)*e + 2/np.pi*inc + eta) # Adachi 1976 Eq. 4.12
-        t_i = t_0 / (1/2 * (2*E/np.pi*e + 8/(3*np.pi)*inc + eta)) # Adachi 1976 Eq. 4.13
-    
-    # Add inner disk edge to flip t_a smoothly
-    t_a /= np.tanh((3/ide_width)*(rock.d-ide_position))
-    t_a = np.min((1e32, t_a)) # prevent too high values
+    t_0 = (8*rho_p*R_p) / (3*C_d*rho_g*v_K) / yr # yr
+    t_a = t_0 / (2 * ((2*(2*E+K)/(3*np.pi)*e + 2/np.pi*inc + eta) * eta + 
+                        (((2*E+K)/(9*np.pi)) * alpha_rho + (68*E-11*K)/(54*np.pi))* (e**3) +
+                        (inc**3)/(2*np.pi))) # Adachi 1976 Eq. 4.11
+    t_e = t_0 / ((2*E)/(np.pi)*e + 2/np.pi*inc + eta) # Adachi 1976 Eq. 4.12
+    t_i = t_0 / (1/2 * (2*E/np.pi*e + 8/(3*np.pi)*inc + eta)) # Adachi 1976 Eq. 4.13
     
     return -t_a, -t_e, -t_i # Negative so damping
-    
-# === RUNNING THE SIM ===
-
-def get_hill_radius(m1, a1, m2, a2, M_star):
-    '''Returns mutual hill radius of two planets.'''
-    return ((m1+m2)/(3*M_star))**1/3 * (a1+a2)/2
-
+ 
 def integrate_sim(sim, sim_id, rocks, rock_names, parameters, years, particle_fate, start_time=0):
     '''Integrates a REBOUND simulation over a given number of years and
     saves the new state of the sim.
@@ -333,11 +184,12 @@ def integrate_sim(sim, sim_id, rocks, rock_names, parameters, years, particle_fa
     stage_times = np.linspace(start_time, years+start_time, n_out, endpoint=False)  # all times to integrate over
     tau_pl = years / 4 # planet formation timescale (for 3 planets)
     
-    if num_pl == 3: # ignore if not 3-planet case
-        # Remove outer planets at the beginning
+    # Remove outer planet(s) at the beginning
+    if num_pl > 1:
         sim.remove(hash='planet c')
-        sim.remove(hash='planet d')
         c_added = False
+    if num_pl > 2:
+        sim.remove(hash='planet d')
         d_added = False
     
     hist = {
@@ -357,11 +209,12 @@ def integrate_sim(sim, sim_id, rocks, rock_names, parameters, years, particle_fa
    
     for i, t in enumerate(stage_times): 
         
-        if num_pl == 3: # ignore if not 3-planet case
-            # Place planet c, d sequentially at 1 AU
+        # Place back planets sequentially at t_pl's
+        if num_pl > 1: 
             if not c_added and t > tau_pl:
                 sim.add(m=m_vals[1], r=r_vals[1], a=a_vals[1], hash=rock_names[1], primary=sim.particles[0])
                 c_added = True
+        if num_pl > 2:
             if not d_added and t > 2*tau_pl:
                 sim.add(m=m_vals[2], r=r_vals[2], a=a_vals[2], hash=rock_names[2], primary=sim.particles[0])
                 d_added = True
@@ -410,10 +263,14 @@ def integrate_sim(sim, sim_id, rocks, rock_names, parameters, years, particle_fa
                 rock = sim.particles[name]
                 
                 # Update timescales
-                tau_a, tau_e, tau_i = get_tau(rock, name, parameters)
-                rock.params["tau_a"] = tau_a
-                rock.params["tau_e"] = tau_e
-                rock.params["tau_inc"] = tau_i
+                if 'ptsml' in name:
+                    tau_a, tau_e, tau_i = tau_gas(rock, parameters)
+                    rock.params["tau_a"] = tau_a
+                    rock.params["tau_e"] = tau_e
+                    rock.params["tau_inc"] = tau_i
+                    hist["tau_a"][i, j] = tau_a
+                    hist["tau_e"][i, j] = tau_e
+                    hist["tau_i"][i, j] = tau_i
                     
                 # Save data
                 hist["a"][i, j] = rock.a
@@ -422,14 +279,11 @@ def integrate_sim(sim, sim_id, rocks, rock_names, parameters, years, particle_fa
                 hist["P"][i, j] = rock.P
                 hist["l"][i, j] = rock.l
                 hist["pomega"][i, j] = rock.pomega
-                hist["tau_a"][i, j] = tau_a
-                hist["tau_e"][i, j] = tau_e
-                hist["tau_i"][i, j] = tau_i
                         
         sim.dt = np.min([sim.particles[name].P / 30 for name in alive_rock_names]) # 1/30 of innermost particle 
         print(f"Sim {sim_id:<2d} | Step {i} of {len(stage_times)}      ", end="\r", flush=True)
         sim.integrate(t)            
-        
+
         # Replenish planetesimals
         pebble_flux, m_ptsml, r_ptsml = parameters['pebble_flux'], parameters['m_ptsml'], parameters['r_ptsml']
         num_added = int(pebble_flux*(years/n_out))
@@ -470,15 +324,15 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, integ
         integrator (str, optional, defaults to whfast): Name of the REBOUND integrator to use.
     """    
     m_vals, m_star, r_vals, r_star, a_vals = parameters["m_vals"], parameters["m_star"], parameters["r_vals"], parameters["r_star"], parameters["a_vals"]
-    ide_position, ide_width, Sigma_1au, h_1au = parameters["ide_position"], parameters["ide_width"], parameters["Sigma_1au"], parameters["h_1au"]
     num_pl, num_em, num_ptsml = parameters["num_pl"], parameters["num_em"], parameters["num_ptsml"]
     
     # Create the simulation
     sim = rebound.Simulation()
     sim.units = ('AU', 'yr', 'Msun')
     sim.integrator = integrator
-    # if integrator == 'trace':
-    #     sim.r_crit_hill = 5.0
+    
+    if integrator == 'trace':
+        sim.ri_trace.r_crit_hill = 5
     
     # Add the star
     sim.add(m=m_star, r=r_star, hash='star')
@@ -552,11 +406,25 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, integ
     rocks = ps[1:] # for easier indexing; ps[0] = planet b
 
     rebx = reboundx.Extras(sim)
-    mof = rebx.load_force("modify_orbits_forces")
-    rebx.add_force(mof)
+    # mof = rebx.load_force("modify_orbits_forces")
+    # rebx.add_force(mof)
+    
+    mig = rebx.load_force("type_I_migration")
+    rebx.add_force(mig)
+    
+    # REBOUNDx Type I migration implementation
+    mig.params["tIm_surface_density_1"] = parameters['Sigma_1au'] * AU**2 / Msun # Converted to Msun/AU^2 from g/cm^2
+    mig.params["tIm_surface_density_exponent"] = parameters['alpha']
+    mig.params["tIm_scale_height_1"] = parameters['h_1au']
+    mig.params["tIm_flaring_index"] = parameters['beta']
+    
+    mig.params["ide_position"] = parameters["ide_position"]
+    mig.params["ide_width"] = mig.params["tIm_scale_height_1"]*mig.params["ide_position"]**mig.params["tIm_flaring_index"]
+    # print('Planet will stop within {0:.3f} AU of the inner disk edge at {1} AU'.format(mig.params["ide_width"], mig.params["ide_position"]))
     
     if years is None: # Set to 2*tau_a of the first planet
-        years = -2*get_tau(rocks[0], rock_names[num_pl-1], parameters)[0]
+        # years = -2*get_tau(rocks[0], rock_names[num_pl-1], parameters)[0]
+        raise ValueError        
 
     # Clip
     if years < 1e3 or years > 10e6:
@@ -572,7 +440,8 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, integ
                         sim_metadata={"num_rocks": num_rocks, 
                                       "rock_names": rock_names, 
                                       "collision_log": collision_log,
-                                      "particle_fate": particle_fate} | parameters)
+                                      "particle_fate": particle_fate,
+                                      "ide_width": mig.params["ide_width"]} | parameters)
     
     # # Visualize End State
     # op = rebound.OrbitPlot(sim)
