@@ -21,8 +21,8 @@ m_earth = u.Mearth.to(u.Msun)
 r_sun = u.Rsun.to(u.AU) 
 
 # === RUNNING THE SIM ===       
-dataset_id = 4
-n_sims = 100
+dataset_id = 0
+n_sims = 1
 
 def run_sim(sim_id):
     # Different rng for each sim
@@ -41,8 +41,8 @@ def run_sim(sim_id):
     }
 
     num_pl = 3
-    num_em = 25
-    num_ptsml = 200
+    num_em = 1
+    num_ptsml = 5
 
     rock_names = planets['name'] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
@@ -60,8 +60,8 @@ def run_sim(sim_id):
     m_vals = np.array(planets['m_vals'] + [m_em]*num_em + [m_ptsml]*num_ptsml) * m_earth
                     # Younger planet is puffier
     r_vals = np.array(planets['r_vals'] + [r_em]*(num_em) + [r_ptsml]*num_ptsml) * r_earth
-    m_star = 1.04 # Msun
-    r_star = 1.52 * r_sun
+    m_star = 1. # Msun
+    r_star = 1.5 * r_sun
     a_vals = np.concatenate((planets['a_vals'], em_a_vals, ptsml_a_vals)) # Initial a_vals
     
     # Gas disk parameters
@@ -70,7 +70,7 @@ def run_sim(sim_id):
     
     Sigma_1au = 1700 * np.tile(np.logspace(-1, 1, num=10), 10)[sim_id] # Each row is the same
     h_1au = np.repeat(np.logspace(-2, -1, num=10), 10)[sim_id] # Each column is the same
-    alpha = 1.5
+    alpha = 1
     
     pebble_flux = 0
         
@@ -106,7 +106,7 @@ if __name__ == "__main__":
     tstart = time()
 
     # === MULTIPROCESSING ===    
-    multiprocess = True
+    multiprocess = False
     
     if multiprocess:
         # Start a local Dask cluster
@@ -129,7 +129,7 @@ if __name__ == "__main__":
             cluster.close()
     else: # Don't use Dask, do one sim
         assert n_sims == 1
-        sim_id = 97
+        sim_id = 82
         run_sim(sim_id)
     
     print(f'Time elapsed: {np.round(time()-tstart)} sec')

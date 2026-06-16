@@ -9,6 +9,8 @@ import re
 import warnings
 warnings.filterwarnings('ignore')
 
+import huang_ide
+
 # === UNIT CONVERSIONS ===
 AU = u.AU.to(u.cm) # cm per AU
 G = 4*np.pi**2 # in yr, AU, Msun
@@ -235,15 +237,17 @@ def get_tau(rock, rock_name, parameters):
     """                                      # alpha is the flaring index for Type I mig
     Sigma_1au, h_1au, ide_position, ide_width, alpha = parameters['Sigma_1au'], parameters['h_1au'], parameters['ide_position'], parameters['ide_width'], parameters['alpha']
     
+    m_p = rock.m
+    r = rock.d # distance to the star
+    a_p = rock.a
+    e = rock.e
+    inc = rock.inc
+    Omega_k = 2*np.pi/rock.P # Keplerian orbital frequency
+    
+    # f_a, f_e = huang_ide.f_functions()
+    
     # Type I migration
     if 'planet' in rock_name:
-        m_p = rock.m
-        r = rock.d # distance to the star
-        a_p = rock.a
-        e = rock.e
-        inc = rock.inc
-        Omega_k = 2*np.pi/rock.P # Keplerian orbital frequency
-        
         Sigma_1au *= AU**2 / Msun # Converted to Msun/AU^2 from g/cm^2
         Sigma_g = Sigma_1au * r**(-3/2)
         h = h_1au * r**1.25 # scale height
@@ -251,17 +255,11 @@ def get_tau(rock, rock_name, parameters):
         t_a = (2/(2.7+1.1*alpha)) * (1/m_p) * (1/(Sigma_g*a_p**2)) * (h/r)**2 * ((1 + (e*r/(1.3*h))**5) / (1 - (e*r/(1.1*h))**4)) / Omega_k
         t_wave = (1/m_p) * (1/(Sigma_g*a_p**2)) * (h/r)**4 / Omega_k
         t_e = (t_wave/0.780) * (1 - 0.14*(e/(h/r))**2 + 0.06 * (e/(h/r))**3 + 0.18 * (e/(h/r)) * (inc/(h/r))**2)
+        # t_e=1e32
         t_i = (t_wave/0.544) * (1 - 0.3*(inc/(h/r))**2 + 0.24 * (inc/(h/r))**3 + 0.14 * (e/(h/r))**2 * (inc/(h/r)))
     
     # Type I migration
-    elif 'embryo' in rock_name:
-        m_p = rock.m
-        r = rock.d # distance to the star
-        a_p = rock.a
-        e = rock.e
-        inc = rock.inc
-        Omega_k = 2*np.pi/rock.P # Keplerian orbital frequency
-            
+    elif 'embryo' in rock_name:   
         Sigma_1au *= AU**2 / Msun # Converted to Msun/AU^2 from g/cm^2        
         Sigma_g = Sigma_1au * r**(-3/2)
         h = h_1au * r**1.25 # scale height
@@ -273,18 +271,12 @@ def get_tau(rock, rock_name, parameters):
            
     # Aerodynamic gas drag 
     elif 'ptsml' in rock_name:
-        e = rock.e
-        inc = rock.inc
-        R_p = rock.r * AU # cm
-        r = rock.d * AU # cm
-        Omega_k = 2*np.pi/(rock.P*yr) # 1/s
-        
         Sigma_g = Sigma_1au * (r/AU)**(-3/2) # g/cm^2
-            
         h = h_1au * (r/AU)**1.25 # scale height in AU
         v_K = r*Omega_k # cm/s
         
-        m_p = 0.0033 * u.Mearth.to(u.g) # g
+        m_p *= u.Msun.to(u.g) # convert to g
+        R_p = rock.r * AU # cm
         rho_p = m_p / (4/3 * np.pi * R_p**3) # Ptsml density (mass / vol) in g/cm^3
         C_d = 0.44 # for km-sized ptsmls and small Mach number (see Brasser 2007) 
         rho_g = Sigma_1au/(np.sqrt(np.pi)*(h_1au*AU)) * (r/AU)**(-11/4) # g/cm^3
@@ -354,7 +346,6 @@ def integrate_sim(sim, sim_id, rocks, rock_names, parameters, years, particle_fa
         "e": np.full((n_out, num_rocks), np.nan),
         "inc": np.full((n_out, num_rocks), np.nan),
         "P": np.full((n_out, num_rocks), np.nan),
-        "P_ratio": np.full((n_out, num_rocks), np.nan),
         "l": np.full((n_out, num_rocks), np.nan),
         "pomega": np.full((n_out, num_rocks), np.nan),
         "tau_a": np.full((n_out, num_rocks), np.nan),
@@ -434,10 +425,7 @@ def integrate_sim(sim, sim_id, rocks, rock_names, parameters, years, particle_fa
                 hist["tau_a"][i, j] = tau_a
                 hist["tau_e"][i, j] = tau_e
                 hist["tau_i"][i, j] = tau_i
-
-                if (name == 'planet b' and 'planet c' in alive_rock_names) or (name == 'planet c' and 'planet d' in alive_rock_names):
-                    hist["P_ratio"][i, j] = rocks[j+1].P / rock.P
-        
+                        
         sim.dt = np.min([sim.particles[name].P / 30 for name in alive_rock_names]) # 1/30 of innermost particle 
         print(f"Sim {sim_id:<2d} | Step {i} of {len(stage_times)}      ", end="\r", flush=True)
         sim.integrate(t)            
@@ -447,8 +435,8 @@ def integrate_sim(sim, sim_id, rocks, rock_names, parameters, years, particle_fa
         num_added = int(pebble_flux*(years/n_out))
         ptsml_locs = []
         for i in range(num_added):
-            rock_names.append(f"ptsml {num_ptsml+i}")
-            sim.add(m=m_ptsml, r=r_ptsml, a=ptsml_locs[i], hash=rock_names[i], primary=sim.particles[0])
+            rock_names.append(f"ptsml {num_ptsml+i}")                                                  # Random mean anomaly
+            sim.add(m=m_ptsml, r=r_ptsml, a=ptsml_locs[i], hash=rock_names[i], primary=sim.particles[0], M=np.random.uniform(0, 2*np.pi))
         num_ptsml += num_added
     
     # Convert to df
@@ -460,7 +448,6 @@ def integrate_sim(sim, sim_id, rocks, rock_names, parameters, years, particle_fa
             "e": hist["e"][:, j],
             "inc": hist["inc"][:, j],
             "P": hist["P"][:, j],
-            "P_ratio": hist["P_ratio"][:, j],
             "l": hist["l"][:, j],
             "pomega": hist["pomega"][:, j],
             "tau_a": hist["tau_a"][:, j],
@@ -490,6 +477,8 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, integ
     sim = rebound.Simulation()
     sim.units = ('AU', 'yr', 'Msun')
     sim.integrator = integrator
+    # if integrator == 'trace':
+    #     sim.r_crit_hill = 5.0
     
     # Add the star
     sim.add(m=m_star, r=r_star, hash='star')
@@ -508,7 +497,7 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, integ
     sim.testparticle_type = 1 # Ptsmls will not interact with each other
         
     # === Collision Handling ===
-    sim.collision = "line"
+    sim.collision = "line" # "direct" might miss too many collisions
     
     # Tracking stats
     collision_log = []

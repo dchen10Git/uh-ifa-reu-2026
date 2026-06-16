@@ -51,6 +51,9 @@ def twoBR_angle(b, c, p, q):
     if p == q == 1:
         return b['l'] - c['l']
     
+    # "Classical" resonant angle
+    # return q*b['l'] - p*c['l'] + (p-q)*c['pomega']
+    
     f, g = fg_lib[(p, q)]
     pomega_hat = np.arctan2((f*b['e']*np.sin(b['pomega']) + g*c['e']*np.sin(c['pomega'])), (f*b['e']*np.cos(b['pomega']) + g*c['e']*np.cos(c['pomega'])))
     return q*b['l'] - p*c['l'] + (p-q)*pomega_hat
