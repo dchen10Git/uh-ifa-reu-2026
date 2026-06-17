@@ -21,8 +21,8 @@ m_earth = u.Mearth.to(u.Msun)
 r_sun = u.Rsun.to(u.AU) 
 
 # === RUNNING THE SIM ===       
-dataset_id = 0
-n_sims = 100
+dataset_id = 9
+n_sims = 1
 
 def run_sim(sim_id):
     # Different rng for each sim
@@ -35,14 +35,14 @@ def run_sim(sim_id):
     # === PARAMETERS ===
     planets = {
         "name": ['planet b', 'planet c', 'planet d'],
-        "m_vals": [3, 3, 3], # [m_earth]
+        "m_vals": [4, 4, 4], # [m_earth]
         "a_vals": [1, 1, 1], # [AU]
         "r_vals": [10, 10, 10] # [r_earth]; twice the current values
     }
 
     num_pl = 3
-    num_em = 0
-    num_ptsml = 0
+    num_em = 25
+    num_ptsml = 200
 
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
@@ -110,7 +110,7 @@ if __name__ == "__main__":
     tstart = time()
 
     # === MULTIPROCESSING ===    
-    multiprocess = True
+    multiprocess = False
     
     if multiprocess:
         # Start a local Dask cluster
@@ -133,7 +133,7 @@ if __name__ == "__main__":
             cluster.close()
     else: # Don't use Dask, do one sim
         assert n_sims == 1
-        sim_id = 54
+        sim_id = 36
         run_sim(sim_id)
     
     print(f'Time elapsed: {np.round(time()-tstart)} sec')

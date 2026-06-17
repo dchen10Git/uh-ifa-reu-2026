@@ -10,7 +10,7 @@ Formulas used from section 2.3 in Keller et al. (2026).
 Alternatively, we can use zeta as given in Eq. 11 in Fabrycky et al. (2014) to determine the period ratio.
 '''
 
-def find_best_twoBR_pq(m_star, b, c, p_max=10, crit="Delta"):
+def find_best_twoBR_pq(m_star, b, c, p_max=16, crit="Delta"):
     '''Finds the best values for p and q at the end of simulation for 
        two planets given some MMR criterion'''
     if crit == 'Delta':
@@ -39,7 +39,7 @@ def find_best_twoBR_pq(m_star, b, c, p_max=10, crit="Delta"):
                     
     return best_p, best_q
 
-def find_best_threeBR_pq(m_star, b, c, d, p_max=10, crit="Delta"):
+def find_best_threeBR_pq(m_star, b, c, d, p_max=16, crit="Delta"):
     best_p_bc, best_q_bc = find_best_twoBR_pq(m_star, b, c, p_max, crit)
     best_p_cd, best_q_cd = find_best_twoBR_pq(m_star, c, d, p_max, crit)          
     return best_p_bc, best_q_bc, best_p_cd, best_q_cd
