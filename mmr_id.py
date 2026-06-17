@@ -75,7 +75,7 @@ def last_P(m_star, b):
     '''Returns the period value given m_star and planet dateframe'''
     return float(b['a'].iloc[-1]**3 / m_star)**(1/2)
 
-def plot_libration(m_star, b, c, d=None, t_units='kyr', N=100, forced_pq=None):
+def plot_libration(m_star, b, c, d=None, t_units='kyr', N=100, forced_pq=None, pomega='mixed'):
     b_name = b.attrs["planet_name"]
     c_name = c.attrs["planet_name"]
     times = b['time']
@@ -94,7 +94,7 @@ def plot_libration(m_star, b, c, d=None, t_units='kyr', N=100, forced_pq=None):
         assert p != 100 # if not, then the planets are definitely not in resonance
         print(f"p, q: {p}, {q}")
         
-        twoBR = np.rad2deg(twoBR_angle(b, c, p, q)) % 360 # mod 360 so it wraps
+        twoBR = np.rad2deg(twoBR_angle(b, c, p, q, pomega)) % 360 # mod 360 so it wraps
         amp = libration_amp(twoBR, N)
         print(f"Libration amplitude: {amp:.1f} deg")
 

@@ -22,7 +22,7 @@ r_sun = u.Rsun.to(u.AU)
 
 # === RUNNING THE SIM ===       
 dataset_id = 0
-n_sims = 1
+n_sims = 100
 
 def run_sim(sim_id):
     # Different rng for each sim
@@ -51,7 +51,7 @@ def run_sim(sim_id):
     r_em = 0.3 # [r_earth]
     m_ptsml = 0.0033 # [m_earth]
     r_ptsml = (100*1e5/AU)/r_earth # 100 km in [r_earth]
-    small_body_a_vals = np.linspace(0.4, 1, num_em+num_ptsml) # equally spaced locations in disk range
+    small_body_a_vals = np.linspace(0.4, 0.9, num_em+num_ptsml) # equally spaced locations in disk range
     em_indices = np.round(np.linspace(0, len(small_body_a_vals) - 1, num=num_em)).astype(int) # picks num_em equally spaced indices
     em_a_vals = small_body_a_vals[em_indices]
     ptsml_a_vals = np.delete(small_body_a_vals, em_indices)
@@ -97,7 +97,7 @@ def run_sim(sim_id):
     years = 3*t_a
     
     # Sim integration!
-    reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, years=years, integrator="whfast")
+    reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, years=years, integrator="trace")
     
 if __name__ == "__main__":
     dataset_dir = Path.cwd().parent / "sim_results" / f"dataset{dataset_id}"
@@ -110,7 +110,7 @@ if __name__ == "__main__":
     tstart = time()
 
     # === MULTIPROCESSING ===    
-    multiprocess = False
+    multiprocess = True
     
     if multiprocess:
         # Start a local Dask cluster
@@ -133,7 +133,7 @@ if __name__ == "__main__":
             cluster.close()
     else: # Don't use Dask, do one sim
         assert n_sims == 1
-        sim_id = 63
+        sim_id = 54
         run_sim(sim_id)
     
     print(f'Time elapsed: {np.round(time()-tstart)} sec')

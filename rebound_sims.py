@@ -189,6 +189,7 @@ def integrate_sim(sim, sim_id, rocks, rock_names, parameters, years, particle_fa
     if num_pl > 1:
         sim.remove(hash='planet c')
         c_added = False
+        sim.N_active = 1 + num_em
     if num_pl > 2:
         sim.remove(hash='planet d')
         d_added = False
@@ -215,10 +216,12 @@ def integrate_sim(sim, sim_id, rocks, rock_names, parameters, years, particle_fa
             if not c_added and t > tau_pl:
                 sim.add(m=m_vals[1], r=r_vals[1], a=a_vals[1], hash=rock_names[1], primary=sim.particles[0])
                 c_added = True
+                sim.N_active += 1
         if num_pl > 2:
             if not d_added and t > 2*tau_pl:
                 sim.add(m=m_vals[2], r=r_vals[2], a=a_vals[2], hash=rock_names[2], primary=sim.particles[0])
                 d_added = True
+                sim.N_active += 1
         
         # Get list of alive rock names
         alive_rock_names = []
@@ -238,7 +241,7 @@ def integrate_sim(sim, sim_id, rocks, rock_names, parameters, years, particle_fa
                     hist["l"][i, j] = rock.l
                     hist["pomega"][i, j] = rock.pomega
                     sim.remove(hash=name)
-                    # print(f"{name} removed; fell into star")
+                    print(f"{name} removed; fell into star")
                 elif rock.a > 100:
                     particle_fate[name] = 'ejected from system (d > 100)'
                     hist["a"][i, j] = rock.a
@@ -248,7 +251,7 @@ def integrate_sim(sim, sim_id, rocks, rock_names, parameters, years, particle_fa
                     hist["l"][i, j] = rock.l
                     hist["pomega"][i, j] = rock.pomega
                     sim.remove(hash=name)
-                    # print(f"{name} removed; ejected from system")
+                    print(f"{name} removed; ejected from system")
             
             except rebound.ParticleNotFound:
                 pass
@@ -288,10 +291,10 @@ def integrate_sim(sim, sim_id, rocks, rock_names, parameters, years, particle_fa
         # Replenish planetesimals
         pebble_flux, m_ptsml, r_ptsml = parameters['pebble_flux'], parameters['m_ptsml'], parameters['r_ptsml']
         num_added = int(pebble_flux*(years/n_out))
-        ptsml_locs = []
-        for i in range(num_added):
-            rock_names.append(f"ptsml {num_ptsml+i}")                                                  # Random mean anomaly
-            sim.add(m=m_ptsml, r=r_ptsml, a=ptsml_locs[i], hash=rock_names[i], primary=sim.particles[0], M=np.random.uniform(0, 2*np.pi))
+        ptsml_locs = np.random.uniform(0.4, 0.9, size=num_added)
+        for k in range(num_added):
+            rock_names.append(f"ptsml {num_ptsml+k}")                                                  # Random mean anomaly
+            sim.add(m=m_ptsml, r=r_ptsml, a=ptsml_locs[k], hash=f"ptsml {num_ptsml + k}", primary=sim.particles[0], M=np.random.uniform(0, 2*np.pi))
         num_ptsml += num_added
     
     # Convert to df
@@ -341,8 +344,8 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, integ
     
     # Add rocks 
     hash_to_name = {int(sim.particles[0].hash.value): 'star'} # initialize dict with star hash
-    for i in range(num_rocks):
-        sim.add(m=m_vals[i], r=r_vals[i], a=a_vals[i], hash=rock_names[i], primary=sim.particles[0])
+    for i in range(num_rocks):                                                                     # Random mean anomaly
+        sim.add(m=m_vals[i], r=r_vals[i], a=a_vals[i], hash=rock_names[i], primary=sim.particles[0], M=np.random.uniform(0, 2*np.pi))
         
         # Sync hashes to names
         h = int(sim.particles[-1].hash.value)
@@ -430,7 +433,7 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, integ
     if years < 1e3 or years > 10e6:
         years = np.clip(years, 1e3, 10e6)
         print(f"Sim {sim_id:<2d} | Years clipped to {years:.3e}")
-        
+            
     print(f"Sim {sim_id:<2d} | {years:.3g} years | Sigma_1au: {parameters['Sigma_1au']} | h_1au: {parameters['h_1au']:.4f}", flush=True)
     data = integrate_sim(sim, sim_id, rocks, rock_names, parameters, years, particle_fate, start_time=0)
     print(f"Sim {sim_id} completed           ")
