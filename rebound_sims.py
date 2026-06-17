@@ -293,8 +293,8 @@ def integrate_sim(sim, sim_id, rocks, rock_names, parameters, years, particle_fa
         num_added = int(pebble_flux*(years/n_out))
         ptsml_locs = np.random.uniform(0.4, 0.9, size=num_added)
         for k in range(num_added):
-            rock_names.append(f"ptsml {num_ptsml+k}")                                                  # Random mean anomaly
-            sim.add(m=m_ptsml, r=r_ptsml, a=ptsml_locs[k], hash=f"ptsml {num_ptsml + k}", primary=sim.particles[0], M=np.random.uniform(0, 2*np.pi))
+            rock_names.append(f"ptsml {num_ptsml+k}")                                                             # Random mean anomaly and inclinatinos
+            sim.add(m=m_ptsml, r=r_ptsml, a=ptsml_locs[k], hash=f"ptsml {num_ptsml + k}", primary=sim.particles[0], M=np.random.uniform(0, 2*np.pi), inc=np.random.uniform(1e-4, 1e-3))
         num_ptsml += num_added
     
     # Convert to df
@@ -344,8 +344,8 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, integ
     
     # Add rocks 
     hash_to_name = {int(sim.particles[0].hash.value): 'star'} # initialize dict with star hash
-    for i in range(num_rocks):                                                                     # Random mean anomaly
-        sim.add(m=m_vals[i], r=r_vals[i], a=a_vals[i], hash=rock_names[i], primary=sim.particles[0], M=np.random.uniform(0, 2*np.pi))
+    for i in range(num_rocks):                                                                     # Random mean anomaly and inclinations
+        sim.add(m=m_vals[i], r=r_vals[i], a=a_vals[i], hash=rock_names[i], primary=sim.particles[0], M=np.random.uniform(0, 2*np.pi), inc=np.random.uniform(1e-4, 1e-3))
         
         # Sync hashes to names
         h = int(sim.particles[-1].hash.value)

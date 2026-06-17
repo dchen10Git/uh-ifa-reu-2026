@@ -22,7 +22,7 @@ r_sun = u.Rsun.to(u.AU)
 
 # === RUNNING THE SIM ===       
 dataset_id = 9
-n_sims = 1
+n_sims = 100
 
 def run_sim(sim_id):
     # Different rng for each sim
@@ -110,7 +110,7 @@ if __name__ == "__main__":
     tstart = time()
 
     # === MULTIPROCESSING ===    
-    multiprocess = False
+    multiprocess = True
     
     if multiprocess:
         # Start a local Dask cluster
@@ -133,7 +133,7 @@ if __name__ == "__main__":
             cluster.close()
     else: # Don't use Dask, do one sim
         assert n_sims == 1
-        sim_id = 36
+        sim_id = 83
         run_sim(sim_id)
     
     print(f'Time elapsed: {np.round(time()-tstart)} sec')
