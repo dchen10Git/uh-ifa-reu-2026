@@ -1,6 +1,7 @@
 # === IMPORTS ===
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 import rebound
 import reboundx
 from astropy import units as u
@@ -180,9 +181,9 @@ def integrate_sim(sim, sim_id, rocks, rock_names, parameters, years, particle_fa
     num_rocks = len(rock_names)
     
     # Set up times for integration & data collection
-    n_out = 2000 # number of data points to collect
+    n_out = 1000 # number of data points to collect
     stage_times = np.linspace(start_time, years+start_time, n_out, endpoint=False)  # all times to integrate over
-    tau_pl = years / 4 # planet formation timescale (for 3 planets)
+    tau_pl = years / 5 # planet formation timescale (for 3 planets)
     
     # Remove outer planet(s) at the beginning
     if num_pl > 1:
@@ -261,8 +262,8 @@ def integrate_sim(sim, sim_id, rocks, rock_names, parameters, years, particle_fa
         for j, name in enumerate(rock_names):
             if name in alive_rock_names:
                 rock = sim.particles[name]
-                
-                # Update timescales
+                            
+                # Update timescales for ptsmls; remember to add rebx effect
                 if 'ptsml' in name:
                     tau_a, tau_e, tau_i = tau_gas(rock, parameters)
                     rock.params["tau_a"] = tau_a
@@ -406,8 +407,11 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, integ
     rocks = ps[1:] # for easier indexing; ps[0] = planet b
 
     rebx = reboundx.Extras(sim)
-    # mof = rebx.load_force("modify_orbits_forces")
-    # rebx.add_force(mof)
+    
+    # Only add mof for gas drag if ptsmls exist
+    if num_ptsml > 0:
+        mof = rebx.load_force("modify_orbits_forces")
+        rebx.add_force(mof)
     
     mig = rebx.load_force("type_I_migration")
     rebx.add_force(mig)
@@ -420,13 +424,9 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, integ
     
     mig.params["ide_position"] = parameters["ide_position"]
     mig.params["ide_width"] = mig.params["tIm_scale_height_1"]*mig.params["ide_position"]**mig.params["tIm_flaring_index"]
-    # print('Planet will stop within {0:.3f} AU of the inner disk edge at {1} AU'.format(mig.params["ide_width"], mig.params["ide_position"]))
-    
-    if years is None: # Set to 2*tau_a of the first planet
-        # years = -2*get_tau(rocks[0], rock_names[num_pl-1], parameters)[0]
-        raise ValueError        
+    # print('Planet will stop within {0:.3f} AU of the inner disk edge at {1} AU'.format(mig.params["ide_width"], mig.params["ide_position"]))   
 
-    # Clip
+    # Clip years if needed
     if years < 1e3 or years > 10e6:
         years = np.clip(years, 1e3, 10e6)
         print(f"Sim {sim_id:<2d} | Years clipped to {years:.3e}")
@@ -442,7 +442,3 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, integ
                                       "collision_log": collision_log,
                                       "particle_fate": particle_fate,
                                       "ide_width": mig.params["ide_width"]} | parameters)
-    
-    # # Visualize End State
-    # op = rebound.OrbitPlot(sim)
-    # plt.show()

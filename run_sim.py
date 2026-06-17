@@ -35,8 +35,8 @@ def run_sim(sim_id):
     # === PARAMETERS ===
     planets = {
         "name": ['planet b', 'planet c', 'planet d'],
-        "m_vals": [5, 5, 5], # [m_earth]
-        "a_vals": [1.2, 1.2, 1.2], # [AU]
+        "m_vals": [3, 3, 3], # [m_earth]
+        "a_vals": [1, 1, 1], # [AU]
         "r_vals": [10, 10, 10] # [r_earth]; twice the current values
     }
 
@@ -65,14 +65,11 @@ def run_sim(sim_id):
     a_vals = np.concatenate((planets['a_vals'][:num_pl], em_a_vals, ptsml_a_vals)) # Initial a_vals
     
     # Gas disk parameters
-    ide_position = 0.2 # Width is determined with formula
+    ide_position = 0.1 # Width is determined with formula
     Sigma_1au = 1700 * np.tile(np.logspace(-1, 1, num=10), 10)[sim_id] # Each row is the same
     h_1au = np.repeat(np.logspace(-2, -1, num=10), 10)[sim_id] # Each column is the same
     alpha = 1
-    beta = 0.25
-    
-    Sigma_1au = 1000
-    h_1au = 0.05
+    beta = 0
     
     pebble_flux = 0
         
@@ -94,8 +91,13 @@ def run_sim(sim_id):
                   "r_ptsml": r_ptsml
                 } 
     
+    Sigma_1au *= AU**2 / Msun # Converted to Msun/AU^2 from g/cm^2
+    t_a = (2/(2.7+1.1*alpha)) / (5*m_earth) / Sigma_1au * h_1au**2 / (2*np.pi) # for a = 1
+    # Set to 3*tau_a of the first planet
+    years = 3*t_a
+    
     # Sim integration!
-    reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, years=1e7, integrator="whfast")
+    reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, years=years, integrator="whfast")
     
 if __name__ == "__main__":
     dataset_dir = Path.cwd().parent / "sim_results" / f"dataset{dataset_id}"
@@ -131,7 +133,7 @@ if __name__ == "__main__":
             cluster.close()
     else: # Don't use Dask, do one sim
         assert n_sims == 1
-        sim_id = 0
+        sim_id = 63
         run_sim(sim_id)
     
     print(f'Time elapsed: {np.round(time()-tstart)} sec')

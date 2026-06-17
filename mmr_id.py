@@ -47,17 +47,21 @@ def find_best_threeBR_pq(m_star, b, c, d, p_max=10, crit="Delta"):
 with open("fg_library.pkl", "rb") as f:
     fg_lib = pickle.load(f)
     
-def twoBR_angle(b, c, p, q):
+def twoBR_angle(b, c, p, q, pomega='mixed'):
     if p == q == 1:
         return b['l'] - c['l']
     
     # 2 DOF resonant angles
-    # return q*b['l'] - p*c['l'] + (p-q)*b['pomega']
-    # return q*b['l'] - p*c['l'] + (p-q)*c['pomega']
-    
-    f, g = fg_lib[(p, q)]
-    pomega_hat = np.arctan2((f*b['e']*np.sin(b['pomega']) + g*c['e']*np.sin(c['pomega'])), (f*b['e']*np.cos(b['pomega']) + g*c['e']*np.cos(c['pomega'])))
-    return q*b['l'] - p*c['l'] + (p-q)*pomega_hat
+    if pomega == 'b':
+        return q*b['l'] - p*c['l'] + (p-q)*b['pomega']
+    elif pomega == 'c': 
+        return q*b['l'] - p*c['l'] + (p-q)*c['pomega']
+    elif pomega == 'mixed':
+        f, g = fg_lib[(p, q)]
+        pomega_hat = np.arctan2((f*b['e']*np.sin(b['pomega']) + g*c['e']*np.sin(c['pomega'])), (f*b['e']*np.cos(b['pomega']) + g*c['e']*np.cos(c['pomega'])))
+        return q*b['l'] - p*c['l'] + (p-q)*pomega_hat
+    else:
+        raise ValueError("Pomega must be 'b', 'c' or 'mixed'")
 
 def threeBR_angle(b, c, d, p_bc, q_bc, p_cd, q_cd):
     return (p_cd-q_cd)*(q_bc*b['l'] - p_bc*c['l']) + (p_bc-q_bc)*(-q_cd*c['l'] + p_cd*d['l'])
