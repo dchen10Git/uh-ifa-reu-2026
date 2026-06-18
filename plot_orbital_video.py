@@ -123,8 +123,8 @@ def load_sim(dataset_id, sim_id, base_dir=None):
 # Visual config by body type
 STYLE = {
     "planet":       dict(s=120,  color=None,    alpha=1.0,  zorder=5,  lw=1.2),
-    "embryo":       dict(s=25,   color="navy",  alpha=0.75, zorder=3,  lw=0.5),
-    "planetesimal": dict(s=5,    color="gray",  alpha=0.6,  zorder=2,  lw=0.3),
+    "embryo":       dict(s=25,   color="skyblue",  alpha=0.75, zorder=3,  lw=0.5),
+    "planetesimal": dict(s=5,    color="white",  alpha=0.6,  zorder=2,  lw=0.3),
 }
 
 PLANET_COLORS = [f"C{i}" for i in range(10)]
@@ -142,14 +142,15 @@ def build_animation(
     n_frames=300,
     fps=24,
     draw_orbits=True,
-    xlim=(-3.2, 3.2),
-    ylim=(-3.2, 3.2),
+    xlim=(-2, 2),
+    ylim=(-2, 2),
     t_units="kyr",
 ):
     time_factor = {"yr": 1, "kyr": 1e3, "Myr": 1e6}[t_units]
 
     # Subsample timesteps evenly
     frame_idxs = np.linspace(0, len(times) - 1, n_frames, dtype=int)
+    frame_idxs = np.arange(0, 300) # <- to see first 300 frames
 
     fig, ax = plt.subplots(figsize=(6, 6), facecolor="k")
     ax.set_facecolor("k")
@@ -180,7 +181,7 @@ def build_animation(
 
     ptsml_xs = np.full(num_ptsml, np.nan)
     ptsml_ys = np.full(num_ptsml, np.nan)
-    ptsml_sc = ax.scatter(ptsml_xs, ptsml_ys, **{**STYLE["planetesimal"], "color": "gray"})
+    ptsml_sc = ax.scatter(ptsml_xs, ptsml_ys, **{**STYLE["planetesimal"], "color": "white"})
 
     # Planets
     for i in range(num_pl):
@@ -197,7 +198,7 @@ def build_animation(
         sc = ax.scatter([], [], **STYLE["embryo"])
         embryo_dots.append(sc)
         if draw_orbits:
-            line, = ax.plot([], [], color="navy", lw=STYLE["embryo"]["lw"],
+            line, = ax.plot([], [], color="skyblue", lw=STYLE["embryo"]["lw"],
                             alpha=ORBIT_ALPHA["embryo"], zorder=STYLE["embryo"]["zorder"] - 1)
             embryo_orbits.append(line)
 
@@ -310,7 +311,7 @@ def main():
     parser.add_argument("--frames",     type=int, default=300,    help="Number of animation frames")
     parser.add_argument("--fps",        type=int, default=24,     help="Frames per second")
     parser.add_argument("--no-orbits",  action="store_true",      help="Skip drawing orbit ellipses")
-    parser.add_argument("--xlim",       type=float, default=3.2,  help="Half-width of x axis (AU)")
+    parser.add_argument("--xlim",       type=float, default=2,  help="Half-width of x axis (AU)")
     parser.add_argument("--tunits",     default="kyr",            choices=["yr","kyr","Myr"])
     parser.add_argument("--output",     default=None,             help="Output filename (auto if not set)")
     parser.add_argument("--gif",        action="store_true",      help="Output GIF instead of MP4")

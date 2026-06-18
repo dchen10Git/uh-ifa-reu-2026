@@ -21,13 +21,10 @@ m_earth = u.Mearth.to(u.Msun)
 r_sun = u.Rsun.to(u.AU) 
 
 # === RUNNING THE SIM ===       
-dataset_id = 9
-n_sims = 100
+dataset_id = 10
+n_sims = 1
 
-def run_sim(sim_id):
-    # Different rng for each sim
-    rng = np.random.default_rng(seed=sim_id + os.getpid())
-    
+def run_sim(sim_id):    
     # Set where to save the data
     base_dir = Path.cwd()
     file_path = base_dir.parent / "sim_results" / f"dataset{dataset_id}" / f"sim{sim_id}.h5"
@@ -41,8 +38,8 @@ def run_sim(sim_id):
     }
 
     num_pl = 3
-    num_em = 25
-    num_ptsml = 200
+    num_em = 2
+    num_ptsml = 5
 
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
@@ -110,7 +107,7 @@ if __name__ == "__main__":
     tstart = time()
 
     # === MULTIPROCESSING ===    
-    multiprocess = True
+    multiprocess = False
     
     if multiprocess:
         # Start a local Dask cluster
@@ -133,7 +130,7 @@ if __name__ == "__main__":
             cluster.close()
     else: # Don't use Dask, do one sim
         assert n_sims == 1
-        sim_id = 83
+        sim_id = 27
         run_sim(sim_id)
     
     print(f'Time elapsed: {np.round(time()-tstart)} sec')

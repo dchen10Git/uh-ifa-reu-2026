@@ -157,14 +157,13 @@ def tau_gas(rock, parameters):
     
     return -t_a, -t_e, -t_i # Negative so damping
  
-def integrate_sim(sim, sim_id, rocks, rock_names, parameters, years, particle_fate, start_time=0):
+def integrate_sim(sim, sim_id, rock_names, parameters, years, particle_fate, start_time=0):
     '''Integrates a REBOUND simulation over a given number of years and
     saves the new state of the sim.
     
     Parameters:
         sim (rebound.Simulation): Simulation object to integrate.
         sim_id: ID of the simulation to keep track.
-        rocks (list[rebound.Particles]): List containing rocks (non-stellar particles) in the sim.
         rock_names (list[str]): List containing names of the rocks (non-stellar particles).
         parameters (dict): Dictionary containing planet and star parameters.
         years (float): Number of years to integrate.
@@ -176,43 +175,47 @@ def integrate_sim(sim, sim_id, rocks, rock_names, parameters, years, particle_fa
             * stage_data (pd.Dataframe): Simulation data.
             * completed_sim (bool): Whether the integration was fully compelted.
     '''
-    m_vals, r_vals, a_vals, Sigma_1au, h_1au = parameters["m_vals"], parameters["r_vals"], parameters["a_vals"], parameters["Sigma_1au"], parameters["h_1au"]
+    m_vals, r_vals, a_vals, pebble_flux = parameters["m_vals"], parameters["r_vals"], parameters["a_vals"], parameters["pebble_flux"]
     num_pl, num_em, num_ptsml = parameters["num_pl"], parameters["num_em"], parameters["num_ptsml"]
     num_rocks = len(rock_names)
     
     # Set up times for integration & data collection
     n_out = 1000 # number of data points to collect
     stage_times = np.linspace(start_time, years+start_time, n_out, endpoint=False)  # all times to integrate over
-    tau_pl = years / 5 # planet formation timescale (for 3 planets)
+    tau_pl = years / 6 # planet formation timescale (for 3 planets)
     
     # Remove outer planet(s) at the beginning
     if num_pl > 1:
         sim.remove(hash='planet c')
         c_added = False
-        sim.N_active = 1 + num_em
+        sim.N_active = 2 + num_em
     if num_pl > 2:
         sim.remove(hash='planet d')
         d_added = False
     
+    max_ptsml_added = int(pebble_flux * years)  # upper bound over the whole run
+    num_rocks_max = num_rocks + max_ptsml_added
+    
     hist = {
         "time": stage_times,
-        "a": np.full((n_out, num_rocks), np.nan),
-        "e": np.full((n_out, num_rocks), np.nan),
-        "inc": np.full((n_out, num_rocks), np.nan),
-        "P": np.full((n_out, num_rocks), np.nan),
-        "l": np.full((n_out, num_rocks), np.nan),
-        "pomega": np.full((n_out, num_rocks), np.nan),
-        "tau_a": np.full((n_out, num_rocks), np.nan),
-        "tau_e": np.full((n_out, num_rocks), np.nan),
-        "tau_i": np.full((n_out, num_rocks), np.nan),
+        "a": np.full((n_out, num_rocks_max), np.nan),
+        "e": np.full((n_out, num_rocks_max), np.nan),
+        "inc": np.full((n_out, num_rocks_max), np.nan),
+        "P": np.full((n_out, num_rocks_max), np.nan),
+        "l": np.full((n_out, num_rocks_max), np.nan),
+        "pomega": np.full((n_out, num_rocks_max), np.nan),
+        "tau_a": np.full((n_out, num_rocks_max), np.nan),
+        "tau_e": np.full((n_out, num_rocks_max), np.nan),
+        "tau_i": np.full((n_out, num_rocks_max), np.nan),
     }
         
     sim.random_seed = 16 # For reproducibility
    
-    for i, t in enumerate(stage_times): 
-        
-        # Place back planets sequentially at t_pl's
-        if num_pl > 1: 
+    removed_names = set() # To keep track of removed rocks during sim
+
+    for i, t in enumerate(stage_times):
+
+        if num_pl > 1:
             if not c_added and t > tau_pl:
                 sim.add(m=m_vals[1], r=r_vals[1], a=a_vals[1], hash=rock_names[1], primary=sim.particles[0])
                 c_added = True
@@ -222,81 +225,75 @@ def integrate_sim(sim, sim_id, rocks, rock_names, parameters, years, particle_fa
                 sim.add(m=m_vals[2], r=r_vals[2], a=a_vals[2], hash=rock_names[2], primary=sim.particles[0])
                 d_added = True
                 sim.N_active += 1
-        
-        # Get list of alive rock names
+
         alive_rock_names = []
+        min_P = np.inf
+
         for j, name in enumerate(rock_names):
-            
-            try: # Prevent error for removed particles
+            if name in removed_names:
+                continue
+            try:
                 rock = sim.particles[name]
-                        
-                if 0.01 < rock.a < 100:
-                    alive_rock_names.append(name)
-                elif rock.a < 0.01:
-                    particle_fate[name] = 'fell into star (d < 0.01)'
-                    hist["a"][i, j] = rock.a
-                    hist["e"][i, j] = rock.e
-                    hist["inc"][i, j] = rock.inc
-                    hist["P"][i, j] = rock.P
-                    hist["l"][i, j] = rock.l
-                    hist["pomega"][i, j] = rock.pomega
-                    sim.remove(hash=name)
-                    print(f"{name} removed; fell into star")
-                elif rock.a > 100:
-                    particle_fate[name] = 'ejected from system (d > 100)'
-                    hist["a"][i, j] = rock.a
-                    hist["e"][i, j] = rock.e
-                    hist["inc"][i, j] = rock.inc
-                    hist["P"][i, j] = rock.P
-                    hist["l"][i, j] = rock.l
-                    hist["pomega"][i, j] = rock.pomega
-                    sim.remove(hash=name)
-                    print(f"{name} removed; ejected from system")
-            
             except rebound.ParticleNotFound:
-                pass
-        
-        # All particles disappeared
+                removed_names.add(name)
+                continue
+
+            orb = rock.orbit(primary=sim.particles[0])  # ← single conversion, reused below
+
+            if orb.a < 0.01 or orb.a > 100:
+                fate = 'fell into star (d < 0.01)' if orb.a < 0.01 else 'ejected from system (d > 100)'
+                particle_fate[name] = fate
+                hist["a"][i,j], hist["e"][i,j], hist["inc"][i,j] = orb.a, orb.e, orb.inc
+                hist["P"][i,j], hist["l"][i,j], hist["pomega"][i,j] = orb.P, orb.l, orb.pomega
+                sim.remove(hash=name)
+                removed_names.add(name)
+                print(f"{name} removed; {fate}")
+                continue
+
+            if 'ptsml' in name:
+                tau_a, tau_e, tau_i = tau_gas(rock, parameters)
+                rock.params["tau_a"] = tau_a
+                rock.params["tau_e"] = tau_e
+                rock.params["tau_inc"] = tau_i
+                hist["tau_a"][i,j], hist["tau_e"][i,j], hist["tau_i"][i,j] = tau_a, tau_e, tau_i
+
+            hist["a"][i,j], hist["e"][i,j], hist["inc"][i,j] = orb.a, orb.e, orb.inc
+            hist["P"][i,j], hist["l"][i,j], hist["pomega"][i,j] = orb.P, orb.l, orb.pomega
+
+            alive_rock_names.append(name)
+            if orb.P < min_P:
+                min_P = orb.P
+
         if not alive_rock_names:
             print(f"Sim {sim_id:<2d} | All particles removed")
             break
-                
-        # Loop through alive rocks
-        for j, name in enumerate(rock_names):
-            if name in alive_rock_names:
-                rock = sim.particles[name]
-                            
-                # Update timescales for ptsmls; remember to add rebx effect
-                if 'ptsml' in name:
-                    tau_a, tau_e, tau_i = tau_gas(rock, parameters)
-                    rock.params["tau_a"] = tau_a
-                    rock.params["tau_e"] = tau_e
-                    rock.params["tau_inc"] = tau_i
-                    hist["tau_a"][i, j] = tau_a
-                    hist["tau_e"][i, j] = tau_e
-                    hist["tau_i"][i, j] = tau_i
-                    
-                # Save data
-                hist["a"][i, j] = rock.a
-                hist["e"][i, j] = rock.e
-                hist["inc"][i, j] = rock.inc
-                hist["P"][i, j] = rock.P
-                hist["l"][i, j] = rock.l
-                hist["pomega"][i, j] = rock.pomega
-                        
-        sim.dt = np.min([sim.particles[name].P / 30 for name in alive_rock_names]) # 1/30 of innermost particle 
+
+        sim.dt = min_P / 30
         print(f"Sim {sim_id:<2d} | Step {i} of {len(stage_times)}      ", end="\r", flush=True)
-        sim.integrate(t)            
+        sim.integrate(t)      
 
         # Replenish planetesimals
         pebble_flux, m_ptsml, r_ptsml = parameters['pebble_flux'], parameters['m_ptsml'], parameters['r_ptsml']
         num_added = int(pebble_flux*(years/n_out))
-        ptsml_locs = np.random.uniform(0.4, 0.9, size=num_added)
-        for k in range(num_added):
-            rock_names.append(f"ptsml {num_ptsml+k}")                                                             # Random mean anomaly and inclinatinos
-            sim.add(m=m_ptsml, r=r_ptsml, a=ptsml_locs[k], hash=f"ptsml {num_ptsml + k}", primary=sim.particles[0], M=np.random.uniform(0, 2*np.pi), inc=np.random.uniform(1e-4, 1e-3))
-        num_ptsml += num_added
-    
+
+        if num_added > 0:
+            ptsml_locs = np.random.uniform(0.4, 0.9, size=num_added) # same belt range as initial disk
+
+            for k in range(num_added):
+                new_name = f"ptsml {num_ptsml+k}"
+                rock_names.append(new_name)
+                sim.add(
+                    m=m_ptsml,
+                    r=r_ptsml,
+                    a=ptsml_locs[k],
+                    hash=new_name,
+                    primary=sim.particles[0],
+                    M=np.random.uniform(0, 2*np.pi),
+                    inc=np.random.uniform(1e-4, 1e-3)
+                )
+
+            num_ptsml += num_added
+        
     # Convert to df
     stage_data = {}
     for j, name in enumerate(rock_names):
@@ -344,14 +341,22 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, integ
     
     # Add rocks 
     hash_to_name = {int(sim.particles[0].hash.value): 'star'} # initialize dict with star hash
-    for i in range(num_rocks):                                                                     # Random mean anomaly and inclinations
-        sim.add(m=m_vals[i], r=r_vals[i], a=a_vals[i], hash=rock_names[i], primary=sim.particles[0], M=np.random.uniform(0, 2*np.pi), inc=np.random.uniform(1e-4, 1e-3))
+    for i in range(num_rocks): 
+        sim.add(
+            m=m_vals[i], 
+            r=r_vals[i], 
+            a=a_vals[i], 
+            hash=rock_names[i], 
+            primary=sim.particles[0], 
+            M=np.random.uniform(0, 2*np.pi), 
+            inc=np.random.uniform(1e-4, 1e-3)
+        )
         
         # Sync hashes to names
         h = int(sim.particles[-1].hash.value)
         hash_to_name[h] = rock_names[i]
         
-    sim.N_active = num_pl + num_em # Massive particles which mutually interact gravitationally
+    sim.N_active = 1 + num_pl + num_em # Massive particles which mutually interact gravitationally (star included)
     sim.testparticle_type = 1 # Ptsmls will not interact with each other
         
     # === Collision Handling ===
@@ -406,9 +411,8 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, integ
 
     # Move to center of momentum
     sim.move_to_com()
-    ps = sim.particles
-    rocks = ps[1:] # for easier indexing; ps[0] = planet b
 
+    # Reboundx effects
     rebx = reboundx.Extras(sim)
     
     # Only add mof for gas drag if ptsmls exist
@@ -435,7 +439,7 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, integ
         print(f"Sim {sim_id:<2d} | Years clipped to {years:.3e}")
             
     print(f"Sim {sim_id:<2d} | {years:.3g} years | Sigma_1au: {parameters['Sigma_1au']} | h_1au: {parameters['h_1au']:.4f}", flush=True)
-    data = integrate_sim(sim, sim_id, rocks, rock_names, parameters, years, particle_fate, start_time=0)
+    data = integrate_sim(sim, sim_id, rock_names, parameters, years, particle_fate, start_time=0)
     print(f"Sim {sim_id} completed           ")
     
     # Save data
