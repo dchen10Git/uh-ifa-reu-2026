@@ -175,7 +175,8 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, particle_fate, sta
             * stage_data (pd.Dataframe): Simulation data.
             * completed_sim (bool): Whether the integration was fully compelted.
     '''
-    m_vals, r_vals, a_vals, pebble_flux = parameters["m_vals"], parameters["r_vals"], parameters["a_vals"], parameters["pebble_flux"]
+    m_vals, r_vals, a_vals = parameters["m_vals"], parameters["r_vals"], parameters["a_vals"]
+    pebble_flux, m_ptsml, r_ptsml = parameters['pebble_flux'], parameters['m_ptsml'], parameters['r_ptsml']
     num_pl, num_em, num_ptsml = parameters["num_pl"], parameters["num_em"], parameters["num_ptsml"]
     num_rocks = len(rock_names)
     
@@ -195,6 +196,7 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, particle_fate, sta
     
     max_ptsml_added = int(pebble_flux * years)  # upper bound over the whole run
     num_rocks_max = num_rocks + max_ptsml_added
+    pebble_accumulator = 0.0
     
     hist = {
         "time": stage_times,
@@ -273,11 +275,12 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, particle_fate, sta
         sim.integrate(t)      
 
         # Replenish planetesimals
-        pebble_flux, m_ptsml, r_ptsml = parameters['pebble_flux'], parameters['m_ptsml'], parameters['r_ptsml']
-        num_added = int(pebble_flux*(years/n_out))
+        pebble_accumulator += pebble_flux * (years / n_out)
+        num_added = int(pebble_accumulator)
+        pebble_accumulator -= num_added
 
         if num_added > 0:
-            ptsml_locs = np.random.uniform(0.4, 0.9, size=num_added) # same belt range as initial disk
+            ptsml_locs = np.random.uniform(0.4, 0.9, size=num_added)
 
             for k in range(num_added):
                 new_name = f"ptsml {num_ptsml+k}"
@@ -407,7 +410,7 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, integ
         return remove_code
     
     sim.collision_resolve = collision_resolve 
-    # sim.collision_resolve = 'halt' # can use for debugging
+    # sim.collision_resolve = 'merge' # can use merge or halt for debugging
 
     # Move to center of momentum
     sim.move_to_com()

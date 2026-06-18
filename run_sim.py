@@ -21,10 +21,14 @@ m_earth = u.Mearth.to(u.Msun)
 r_sun = u.Rsun.to(u.AU) 
 
 # === RUNNING THE SIM ===       
-dataset_id = 10
-n_sims = 1
+dataset_id = 9
+n_sims = 100
 
 def run_sim(sim_id):    
+    # Skip sims already run
+    if sim_id not in [0, 1, 10, 11, 12, 20, 21, 22, 23, 30, 31, 32, 33, 34, 40, 41, 42, 43, 44, 45, 46, 48, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99]:
+        return
+    
     # Set where to save the data
     base_dir = Path.cwd()
     file_path = base_dir.parent / "sim_results" / f"dataset{dataset_id}" / f"sim{sim_id}.h5"
@@ -37,9 +41,9 @@ def run_sim(sim_id):
         "r_vals": [10, 10, 10] # [r_earth]; twice the current values
     }
 
-    num_pl = 3
-    num_em = 2
-    num_ptsml = 5
+    num_pl = 0
+    num_em = 1
+    num_ptsml = 0
 
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
@@ -68,7 +72,7 @@ def run_sim(sim_id):
     alpha = 1
     beta = 0
     
-    pebble_flux = 0
+    pebble_flux = 0 # number per year (broken rn)
         
     parameters = {"m_vals": m_vals,
                   "m_star": m_star,
@@ -107,7 +111,7 @@ if __name__ == "__main__":
     tstart = time()
 
     # === MULTIPROCESSING ===    
-    multiprocess = False
+    multiprocess = True
     
     if multiprocess:
         # Start a local Dask cluster
