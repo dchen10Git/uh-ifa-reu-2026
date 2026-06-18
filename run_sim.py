@@ -27,6 +27,7 @@ n_sims = 100
 def run_sim(sim_id):    
     # Skip sims already run
     if sim_id not in [0, 1, 10, 11, 12, 20, 21, 22, 23, 30, 31, 32, 33, 34, 40, 41, 42, 43, 44, 45, 46, 48, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99]:
+        print(f"Skipped {sim_id}")
         return
     
     # Set where to save the data
@@ -41,9 +42,9 @@ def run_sim(sim_id):
         "r_vals": [10, 10, 10] # [r_earth]; twice the current values
     }
 
-    num_pl = 0
-    num_em = 1
-    num_ptsml = 0
+    num_pl = 3
+    num_em = 25
+    num_ptsml = 200
 
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
@@ -98,7 +99,11 @@ def run_sim(sim_id):
     years = 3*t_a
     
     # Sim integration!
-    reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, years=years, integrator="trace")
+    try:
+        reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, years=years, integrator="trace")
+    except Exception as e:
+        print(f"Sim {sim_id} | Unexpected error: {e}")
+        return # Allow continuation of other sims
     
 if __name__ == "__main__":
     dataset_dir = Path.cwd().parent / "sim_results" / f"dataset{dataset_id}"
@@ -126,9 +131,7 @@ if __name__ == "__main__":
         try:
             # Submit all simulations as Dask futures
             futures = [client.submit(run_sim, sim_id) for sim_id in range(n_sims)]
-
             results = client.gather(futures)
-            
         finally:
             client.close()
             cluster.close()
