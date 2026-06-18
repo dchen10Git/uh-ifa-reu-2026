@@ -104,7 +104,7 @@ def load_sim(dataset_id, sim_id, base_dir=None):
     saved_sim = reb_sims.load_simulation_run(file_path)
     sim_data, metadata = saved_sim
 
-    rock_names = metadata["rock_names"]
+    rock_names = list(sim_data.keys())
     num_pl     = metadata["num_pl"]
     num_em     = metadata["num_em"]
     num_ptsml  = metadata["num_ptsml"]

@@ -91,14 +91,17 @@ def plot_libration(m_star, b, c, d=None, t_units='kyr', N=100, forced_pq=None, p
         if forced_pq: # should be a tuple
             p, q = forced_pq
 
-        assert p != 100 # if not, then the planets are definitely not in resonance
+        if p == 100: # if not, then the planets are definitely not in resonance
+            print(f"{b_name} and {c_name} are not in resonance.")
+            return
+        
         print(f"p, q: {p}, {q}")
         
         twoBR = np.rad2deg(twoBR_angle(b, c, p, q, pomega)) % 360 # mod 360 so it wraps
         amp = libration_amp(twoBR, N)
         print(f"Libration amplitude: {amp:.1f} deg")
 
-        plt.figure(figsize=(8,4))
+        plt.figure(figsize=(5,4))
         if t_units == 'kyr':
             plt.scatter(times/1000, twoBR, s=3) 
         plt.axhline(180, color='gray', ls='--', alpha=0.7)
@@ -123,7 +126,7 @@ def plot_libration(m_star, b, c, d=None, t_units='kyr', N=100, forced_pq=None, p
         amp = libration_amp(threeBR, N)
         print(f"Libration amplitude: {amp:.1f} deg")
 
-        plt.figure(figsize=(8,4))
+        plt.figure(figsize=(5,4))
         if t_units == 'kyr':
             plt.scatter(times/1000, threeBR%360, s=3) 
         plt.axhline(180, color='gray', ls='--', alpha=0.7)
@@ -133,7 +136,7 @@ def plot_libration(m_star, b, c, d=None, t_units='kyr', N=100, forced_pq=None, p
         plt.grid(True)
         plt.show()
 
-def check_resonance(m_star, b, c, d=None, N=100):
+def check_resonance(m_star, b, c, d=None, N=100, amp_threshold=90):
     '''
     Given m_star and planet dataframes, returns the resonance ratios if resonance is
     detected, otherwise returns (0,0) for 2BR and ((0,0), (0,0)) for 3BR.
@@ -149,7 +152,7 @@ def check_resonance(m_star, b, c, d=None, N=100):
         else: # resonance detected
             twoBR = np.rad2deg(twoBR_angle(b, c, p, q)) % 360 # mod 360 so it wraps
             amp = libration_amp(twoBR, N)
-            if amp < 90: # criterion for libration
+            if amp < amp_threshold: # criterion for libration
                 return (p,q)
             else:
                 return (0,0)
@@ -165,7 +168,7 @@ def check_resonance(m_star, b, c, d=None, N=100):
         else: # resonance detected
             threeBR = np.rad2deg(threeBR_angle(b, c, d, p_bc, q_bc, p_cd, q_cd)) % 360 # mod 360 so it wraps
             amp = libration_amp(threeBR, N)
-            if amp < 90:
+            if amp < amp_threshold:
                 return ((p_bc, q_bc), (p_cd, q_cd))
             else:
                 return ((0,0), (0,0))
