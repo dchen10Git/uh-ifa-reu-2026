@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --job-name=ptsmls
-#SBATCH --output=sbatch10.out
-#SBATCH --time=24:00:00
-#SBATCH --cpus-per-task=4
+#SBATCH --output=sbatch91.out
+#SBATCH --time=48:00:00
+#SBATCH --cpus-per-task=12
 #SBATCH --account=pi-fabrycky
 
 echo Script started.
@@ -18,3 +18,6 @@ echo Environment activated.
 /home/dchen10/.conda/envs/myenv/bin/python3 run_sim.py
 
 echo Finished running.
+
+
+
