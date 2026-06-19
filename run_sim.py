@@ -21,14 +21,14 @@ m_earth = u.Mearth.to(u.Msun)
 r_sun = u.Rsun.to(u.AU) 
 
 # === RUNNING THE SIM ===       
-dataset_id = 10
+dataset_id = 'benchmark'
 n_sims = 1
 
 def run_sim(sim_id):    
-    # Skip sims if needed
-    if sim_id not in [9, 18, 27, 36, 45, 54, 63, 72, 81, 90]:
-        print(f"Skipped {sim_id}")
-        return
+    # # Skip sims if needed
+    # if sim_id not in [9, 18, 27, 36, 45, 54, 63, 72, 81, 90]:
+    #     print(f"Skipped {sim_id}")
+    #     return
     
     # Set where to save the data
     base_dir = Path.cwd()
@@ -42,9 +42,9 @@ def run_sim(sim_id):
         "r_vals": [10, 10, 10] # [r_earth]; twice the current values
     }
 
-    num_pl = 3
-    num_em = 15
-    num_ptsml = 150
+    num_pl = 1
+    num_em = 0
+    num_ptsml = 0
 
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
@@ -67,14 +67,20 @@ def run_sim(sim_id):
     a_vals = np.concatenate((planets['a_vals'][:num_pl], em_a_vals, ptsml_a_vals)) # Initial a_vals
     
     # Gas disk parameters
-    ide_position = 0.1 # Width is determined with formula
+    ide_position = 0.1 # Width is then determined with formula
     Sigma_1au = 1700 * np.tile(np.logspace(-1, 1, num=10), 10)[sim_id] # Each row is the same
     h_1au = np.repeat(np.logspace(-2, -1, num=10), 10)[sim_id] # Each column is the same
     alpha = 1
     beta = 0
     
     pebble_flux = 0/1000 # number per year
-        
+    
+    Sigma_1au = 5000
+    h_1au = 0.03
+                                              # Converted to Msun/AU^2 from g/cm^2
+    tau_a = (2/(2.7+1.1*alpha)) / (5*m_earth) / (Sigma_1au*AU**2 / Msun) * h_1au**2 / (2*np.pi) # for a = 1
+    tau_pl = tau_a/2 # planet formation timescale
+    years = 3*tau_a # Set to 3*tau_a of the first planet
     parameters = {"m_vals": m_vals,
                   "m_star": m_star,
                   "r_vals": r_vals,
@@ -90,13 +96,10 @@ def run_sim(sim_id):
                   "beta": beta,
                   "pebble_flux": pebble_flux,
                   "m_ptsml": m_ptsml,
-                  "r_ptsml": r_ptsml
+                  "r_ptsml": r_ptsml,
+                  "tau_pl": tau_pl,
+                  "years": years
                 } 
-    
-    Sigma_1au *= AU**2 / Msun # Converted to Msun/AU^2 from g/cm^2
-    t_a = (2/(2.7+1.1*alpha)) / (5*m_earth) / Sigma_1au * h_1au**2 / (2*np.pi) # for a = 1
-    # Set to 3*tau_a of the first planet
-    years = 3*t_a
     
     # Sim integration!
     try:
@@ -116,7 +119,7 @@ if __name__ == "__main__":
     tstart = time()
 
     # === MULTIPROCESSING ===    
-    multiprocess = True
+    multiprocess = False
     
     if multiprocess:
         # Start a local Dask cluster
@@ -137,9 +140,10 @@ if __name__ == "__main__":
             cluster.close()
     else: # Don't use Dask, do one sim
         assert n_sims == 1
-        sim_id = 90
+        sim_id = 0
+        
         run_sim(sim_id)
     
-    print(f'Time elapsed: {np.round(time()-tstart)} sec')
+    print(f'Time elapsed: {int(time()-tstart)} sec')
     
 # To run, use python3 -W ignore run_sim.py

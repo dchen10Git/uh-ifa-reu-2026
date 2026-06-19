@@ -129,9 +129,9 @@ def tau_gas(rock, parameters):
     """                                     
     Sigma_1au, h_1au, beta = parameters['Sigma_1au'], parameters['h_1au'], parameters['beta']
     
-    m_p = rock.m * u.Msun.to(u.g) # convert to g
+    m_p = rock.m * Msun # convert to g
     r = rock.d * AU # distance to the star, converted to cm
-    R_p = rock.r * AU # cm # radius, converted to cm
+    R_p = rock.r * AU # radius, converted to cm
     e = rock.e
     inc = rock.inc
     Omega_k = 2*np.pi/rock.P / yr # Keplerian orbital frequency, converted to 1/s
@@ -179,12 +179,12 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, particle_fate, has
     m_vals, r_vals, a_vals = parameters["m_vals"], parameters["r_vals"], parameters["a_vals"]
     pebble_flux, m_ptsml, r_ptsml = parameters['pebble_flux'], parameters['m_ptsml'], parameters['r_ptsml']
     num_pl, num_em, num_ptsml = parameters["num_pl"], parameters["num_em"], parameters["num_ptsml"]
+    tau_pl = parameters["tau_pl"]
     num_rocks = len(rock_names)
     
     # Set up times for integration & data collection
     n_out = 1000 # number of data points to collect
     stage_times = np.linspace(start_time, years+start_time, n_out, endpoint=False)  # all times to integrate over
-    tau_pl = years / 6 # planet formation timescale (for 3 planets)
     
     # Remove outer planet(s) at the beginning
     if num_pl > 1:
@@ -216,16 +216,19 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, particle_fate, has
     removed_names = set() # To keep track of removed rocks during sim
 
     for i, t in enumerate(stage_times):
+        
+        star = sim.particles[0]
+        
         if num_pl > 1:
             if not c_added and t > tau_pl:
-                sim.add(m=m_vals[1], r=r_vals[1], a=a_vals[1], hash=rock_names[1], primary=sim.particles[0])
+                sim.add(m=m_vals[1], r=r_vals[1], a=a_vals[1], hash=rock_names[1], primary=star)
                 c_added = True
                 sim.N_active += 1
                 hash_to_name[int(sim.particles[-1].hash.value)] = rock_names[1]
                 removed_names.discard('planet c')
         if num_pl > 2:
             if not d_added and t > 2*tau_pl:
-                sim.add(m=m_vals[2], r=r_vals[2], a=a_vals[2], hash=rock_names[2], primary=sim.particles[0])
+                sim.add(m=m_vals[2], r=r_vals[2], a=a_vals[2], hash=rock_names[2], primary=star)
                 d_added = True
                 sim.N_active += 1
                 hash_to_name[int(sim.particles[-1].hash.value)] = rock_names[2]
@@ -242,9 +245,9 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, particle_fate, has
             except rebound.ParticleNotFound:
                 removed_names.add(name)
                 continue
-
-            orb = rock.orbit(primary=sim.particles[0]) # single conversion, reused below
-
+            
+            orb = rock.orbit(primary=star)
+        
             if orb.a < 0.01 or orb.a > 100:
                 fate = 'fell into star (d < 0.01)' if orb.a < 0.01 else 'ejected from system (d > 100)'
                 particle_fate[name] = fate
@@ -275,7 +278,8 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, particle_fate, has
         
         sim.dt = min_P / 30
 
-        print(f"Sim {sim_id:<2d} | Step {i} of {len(stage_times)}      ", end="\r", flush=True)
+        if i % 50 == 0:
+            print(f"Sim {sim_id:<2d} | Step {i} of {len(stage_times)}      ", end="\r", flush=True)
         
         try:
             sim.integrate(t)
@@ -285,7 +289,7 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, particle_fate, has
             for name in alive_rock_names:
                 try:
                     p = sim.particles[name]
-                    orb = p.orbit(primary=sim.particles[0])
+                    orb = p.orbit(primary=star)
                     print(f"  {name}: a={orb.a:.4f}, e={orb.e:.4f}")
                 except:
                     print(f"  {name}: orbit computation failed")
@@ -303,7 +307,7 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, particle_fate, has
                 rock_names.append(new_name)
                 particle_fate[new_name] = "alive" # track fate for new ptsmls
                 sim.add(m=m_ptsml*m_earth, r=r_ptsml*r_earth, a=ptsml_locs[k],
-                        hash=new_name, primary=sim.particles[0],
+                        hash=new_name, primary=star,
                         M=np.random.uniform(0, 2*np.pi),
                         inc=np.random.uniform(1e-4, 1e-3))
                 hash_to_name[int(sim.particles[-1].hash.value)] = new_name # register hash to name
@@ -427,19 +431,6 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, integ
 
     # Move to center of momentum
     sim.move_to_com()
-    
-    # Debug for overlapping
-    for i in range(1, sim.N):
-        for j in range(i+1, sim.N):
-            pi, pj = sim.particles[i], sim.particles[j]
-            dx = pi.x - pj.x
-            dy = pi.y - pj.y
-            dz = pi.z - pj.z
-            dist = np.sqrt(dx**2 + dy**2 + dz**2)
-            if dist < (pi.r + pj.r):
-                print(f"WARNING: overlap at init between {hash_to_name.get(int(pi.hash.value))} "
-                      f"and {hash_to_name.get(int(pj.hash.value))}: dist={dist:.4e} AU, "
-                      f"sum of radii={pi.r+pj.r:.4e} AU")
 
     # Reboundx effects
     rebx = reboundx.Extras(sim)
