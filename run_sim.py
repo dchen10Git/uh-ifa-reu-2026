@@ -25,10 +25,10 @@ dataset_id = 10
 n_sims = 1
 
 def run_sim(sim_id):    
-    # # Skip sims already run
-    # if sim_id not in [0, 1, 10, 11, 12, 20, 21, 22, 23, 30, 31, 32, 33, 34, 40, 41, 42, 43, 44, 45, 46, 48, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99]:
-    #     print(f"Skipped {sim_id}")
-    #     return
+    # Skip sims if needed
+    if sim_id not in [9, 18, 27, 36, 45, 54, 63, 72, 81, 90]:
+        print(f"Skipped {sim_id}")
+        return
     
     # Set where to save the data
     base_dir = Path.cwd()
@@ -43,8 +43,8 @@ def run_sim(sim_id):
     }
 
     num_pl = 3
-    num_em = 5
-    num_ptsml = 20
+    num_em = 15
+    num_ptsml = 150
 
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
@@ -116,7 +116,7 @@ if __name__ == "__main__":
     tstart = time()
 
     # === MULTIPROCESSING ===    
-    multiprocess = False
+    multiprocess = True
     
     if multiprocess:
         # Start a local Dask cluster
@@ -137,7 +137,7 @@ if __name__ == "__main__":
             cluster.close()
     else: # Don't use Dask, do one sim
         assert n_sims == 1
-        sim_id = 43
+        sim_id = 90
         run_sim(sim_id)
     
     print(f'Time elapsed: {np.round(time()-tstart)} sec')
