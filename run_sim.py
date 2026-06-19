@@ -21,14 +21,14 @@ m_earth = u.Mearth.to(u.Msun)
 r_sun = u.Rsun.to(u.AU) 
 
 # === RUNNING THE SIM ===       
-dataset_id = 'benchmark'
-n_sims = 1
+dataset_id = 10
+n_sims = 100
 
 def run_sim(sim_id):    
-    # # Skip sims if needed
-    # if sim_id not in [9, 18, 27, 36, 45, 54, 63, 72, 81, 90]:
-    #     print(f"Skipped {sim_id}")
-    #     return
+    # Skip sims if needed
+    if sim_id not in [63, 72, 81, 90]:
+        print(f"Skipped {sim_id}")
+        return
     
     # Set where to save the data
     base_dir = Path.cwd()
@@ -42,9 +42,9 @@ def run_sim(sim_id):
         "r_vals": [10, 10, 10] # [r_earth]; twice the current values
     }
 
-    num_pl = 1
-    num_em = 0
-    num_ptsml = 0
+    num_pl = 3
+    num_em = 15
+    num_ptsml = 150
 
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
@@ -74,13 +74,10 @@ def run_sim(sim_id):
     beta = 0
     
     pebble_flux = 0/1000 # number per year
-    
-    Sigma_1au = 5000
-    h_1au = 0.03
                                               # Converted to Msun/AU^2 from g/cm^2
     tau_a = (2/(2.7+1.1*alpha)) / (5*m_earth) / (Sigma_1au*AU**2 / Msun) * h_1au**2 / (2*np.pi) # for a = 1
     tau_pl = tau_a/2 # planet formation timescale
-    years = 3*tau_a # Set to 3*tau_a of the first planet
+    years = 2.5*tau_a # Set to 3*tau_a of the first planet
     parameters = {"m_vals": m_vals,
                   "m_star": m_star,
                   "r_vals": r_vals,
@@ -119,7 +116,7 @@ if __name__ == "__main__":
     tstart = time()
 
     # === MULTIPROCESSING ===    
-    multiprocess = False
+    multiprocess = True
     
     if multiprocess:
         # Start a local Dask cluster
