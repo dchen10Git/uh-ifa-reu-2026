@@ -231,7 +231,9 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, particle_fate, has
     
     # Set up times for integration & data collection
     n_out = 1000 # number of data points to collect
-    stage_times = np.linspace(start_time, years+start_time, n_out, endpoint=False)  # all times to integrate over
+    factor = int(np.ceil(years*4 / 1000)) # for good resolution (though a bit arbitrary)
+    stage_times = np.linspace(start_time, years+start_time, n_out*factor, endpoint=False)  # all times to integrate over
+    data_times = stage_times[::factor]  # all times to save data
     
     # Remove outer planet(s) at the beginning
     if num_pl > 1:
@@ -246,7 +248,7 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, particle_fate, has
     pebble_accumulator = 0.0
     
     hist = {
-        "time": stage_times,
+        "time": data_times,
         "a": np.full((n_out, num_rocks_max), np.nan),
         "e": np.full((n_out, num_rocks_max), np.nan),
         "inc": np.full((n_out, num_rocks_max), np.nan),
@@ -307,19 +309,19 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, particle_fate, has
 
             if 'ptsml' in name:
                 tau_a, tau_e, tau_i = tau_gas(rock, parameters)
-                rock.params["tau_a"] = tau_a
-                rock.params["tau_e"] = tau_e
-                rock.params["tau_inc"] = tau_i
-                hist["tau_a"][i,j], hist["tau_e"][i,j], hist["tau_i"][i,j] = tau_a, tau_e, tau_i
             elif 'planet' in name or 'ptsml' in name:
                 tau_a, tau_e, tau_i = tau_t1_mig(rock, parameters)
-                rock.params["tau_a"] = tau_a
-                rock.params["tau_e"] = tau_e
-                rock.params["tau_inc"] = tau_i
-                hist["tau_a"][i,j], hist["tau_e"][i,j], hist["tau_i"][i,j] = tau_a, tau_e, tau_i
             
-            hist["a"][i,j], hist["e"][i,j], hist["inc"][i,j] = orb.a, orb.e, orb.inc
-            hist["P"][i,j], hist["l"][i,j], hist["pomega"][i,j] = orb.P, orb.l, orb.pomega
+            rock.params["tau_a"] = tau_a
+            rock.params["tau_e"] = tau_e
+            rock.params["tau_inc"] = tau_i
+            
+            # Save data only at some times
+            if t in data_times:
+                data_i = int(i/factor)
+                hist["tau_a"][data_i,j], hist["tau_e"][data_i,j], hist["tau_i"][data_i,j] = tau_a, tau_e, tau_i
+                hist["a"][data_i,j], hist["e"][data_i,j], hist["inc"][data_i,j] = orb.a, orb.e, orb.inc
+                hist["P"][data_i,j], hist["l"][data_i,j], hist["pomega"][data_i,j] = orb.P, orb.l, orb.pomega
 
             alive_rock_names.append(name)
             if orb.P < min_P:
@@ -481,6 +483,16 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, integ
     # Only add mof for gas drag if ptsmls exist
     mof = rebx.load_force("modify_orbits_forces")
     rebx.add_force(mof)
+    
+    # # REMOVE
+    # mig = rebx.load_force("type_I_migration")
+    # rebx.add_force(mig)
+    # mig.params["tIm_surface_density_1"] = parameters['Sigma_1au'] * AU**2 / Msun # Converted to Msun/AU^2 from g/cm^2
+    # mig.params["tIm_surface_density_exponent"] = parameters['alpha']
+    # mig.params["tIm_scale_height_1"] = parameters['h_1au']
+    # mig.params["tIm_flaring_index"] = parameters['beta']
+    # mig.params["ide_position"] = parameters["ide_position"]
+    # mig.params["ide_width"] = parameters['ide_width']
     
     # Clip years if needed
     if years < 1e3 or years > 10e6:

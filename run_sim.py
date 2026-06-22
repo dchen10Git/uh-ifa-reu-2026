@@ -104,6 +104,7 @@ def run_sim(sim_id):
         reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, years=years, integrator="trace")
     except Exception as e:
         print(f"Sim {sim_id} | Unexpected error: {e}")
+        # raise # Use this for debug traceback
         return # Allow continuation of other sims
     
 if __name__ == "__main__":
@@ -138,7 +139,7 @@ if __name__ == "__main__":
             cluster.close()
     else: # Don't use Dask, do one sim
         assert n_sims == 1
-        sim_id = 18
+        sim_id = 36
         
         run_sim(sim_id)
     
