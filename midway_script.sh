@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --job-name=ptsmls
-#SBATCH --output=sbatch91.out
-#SBATCH --time=36:00:00
-#SBATCH --cpus-per-task=12
+#SBATCH --output=sbatch31.out
+#SBATCH --time=12:00:00
+#SBATCH --cpus-per-task=25
 #SBATCH --account=pi-fabrycky
 
 echo Script started.
