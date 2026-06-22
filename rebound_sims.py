@@ -76,8 +76,6 @@ def save_simulation_run(stage_data, sim_id, file_path, sim_metadata=None):
             storer.attrs.planet_name = planet_name
             storer.attrs.sim_id = sim_id
     
-    print("Simulation saved")
-    
 def load_simulation_run(file_path):
     '''Load a simulation for analysis.
     
@@ -338,16 +336,8 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, particle_fate, has
         try:
             sim.integrate(t)
         except RuntimeError:
-            print(f"\nSim {sim_id} | NaN at step {i}, t={t:.1f} yr")
-            print(f"  alive: {alive_rock_names}")
-            for name in alive_rock_names:
-                try:
-                    p = sim.particles[name]
-                    orb = p.orbit(primary=star)
-                    print(f"  {name}: a={orb.a:.4f}, e={orb.e:.4f}")
-                except:
-                    print(f"  {name}: orbit computation failed")
-            break # Abort simulation
+            print(f"\nSim {sim_id} Failed; NaN at step {i}, t={t:.1f} yr")
+            return False # Abort simulation and tell simulate_system()
 
         # Replenish planetesimals
         pebble_accumulator += pebble_flux * (years / n_out)
@@ -399,7 +389,6 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, integ
         integrator (str, optional, defaults to whfast): Name of the REBOUND integrator to use.
     """    
     m_vals, m_star, r_vals, r_star, a_vals = parameters["m_vals"], parameters["m_star"], parameters["r_vals"], parameters["r_star"], parameters["a_vals"]
-    num_pl, num_em, num_ptsml = parameters["num_pl"], parameters["num_em"], parameters["num_ptsml"]
     
     # Create the simulation
     sim = rebound.Simulation()
@@ -430,7 +419,7 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, integ
         h = int(sim.particles[-1].hash.value)
         hash_to_name[h] = rock_names[i]
         
-    sim.N_active = 1 + 1 + num_em # Star + first planet + embryos
+    sim.N_active = 1 + 1 + parameters['num_em'] # Star + first planet + embryos
     sim.testparticle_type = 1 # Ptsmls will not interact with each other
         
     # === Collision Handling ===
@@ -493,25 +482,27 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, integ
     mof = rebx.load_force("modify_orbits_forces")
     rebx.add_force(mof)
     
-    # mig = rebx.load_force("type_I_migration")
-    # rebx.add_force(mig)
-    
-    # # REBOUNDx Type I migration implementation
-    # mig.params["tIm_surface_density_1"] = parameters['Sigma_1au'] * AU**2 / Msun # Converted to Msun/AU^2 from g/cm^2
-    # mig.params["tIm_surface_density_exponent"] = parameters['alpha']
-    # mig.params["tIm_scale_height_1"] = parameters['h_1au']
-    # mig.params["tIm_flaring_index"] = parameters['beta']
-    # mig.params["ide_position"] = parameters["ide_position"]
-    # mig.params["ide_width"] = parameters['ide_width']
-
     # Clip years if needed
     if years < 1e3 or years > 10e6:
         years = np.clip(years, 1e3, 10e6)
         print(f"Sim {sim_id:<2d} | Years clipped to {years:.3e}")
             
     print(f"Sim {sim_id:<2d} | {years/1000:.1f} kyr | Sigma_1au: {parameters['Sigma_1au']:.0f} | h_1au: {parameters['h_1au']:.3f}", flush=True)
+    
+    # Loop until simulation successfully completes
+    # data = False
+    # while data == False:
+    #     data = integrate_sim(sim, sim_id, rock_names, parameters, years, particle_fate, hash_to_name, start_time=0)
+    #     if data == False:
+    #         print(f"Retrying Sim {sim_id}")
+    
+    # Retry only once if failed
     data = integrate_sim(sim, sim_id, rock_names, parameters, years, particle_fate, hash_to_name, start_time=0)
-    print(f"Sim {sim_id} completed           ")
+    if data == False:
+        print(f"Retrying Sim {sim_id}")
+        data = integrate_sim(sim, sim_id, rock_names, parameters, years, particle_fate, hash_to_name, start_time=0)
+        
+    print(f"Saving Sim {sim_id}           ")
     
     # Save data
     save_simulation_run(data, sim_id, file_path, 

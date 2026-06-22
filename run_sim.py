@@ -21,14 +21,13 @@ m_earth = u.Mearth.to(u.Msun)
 r_sun = u.Rsun.to(u.AU) 
 
 # === RUNNING THE SIM ===       
-dataset_id = 11
-n_sims = 1
+dataset_id = 3
+n_sims = 100
 
 def run_sim(sim_id):    
     # Skip sims if needed
-    # if sim_id not in [63, 72, 81, 90]:
-    #     print(f"Skipped {sim_id}                   ")
-    #     return
+    if sim_id < 50:
+        return
     
     # Set where to save the data
     base_dir = Path.cwd()
@@ -43,8 +42,8 @@ def run_sim(sim_id):
     }
 
     num_pl = 3
-    num_em = 0
-    num_ptsml = 0
+    num_em = 20
+    num_ptsml = 180
 
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
@@ -118,7 +117,7 @@ if __name__ == "__main__":
     tstart = time()
 
     # === MULTIPROCESSING ===    
-    multiprocess = False
+    multiprocess = True
     
     if multiprocess:
         # Start a local Dask cluster
@@ -139,7 +138,7 @@ if __name__ == "__main__":
             cluster.close()
     else: # Don't use Dask, do one sim
         assert n_sims == 1
-        sim_id = 54
+        sim_id = 18
         
         run_sim(sim_id)
     
