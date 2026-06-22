@@ -333,7 +333,8 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, particle_fate, has
         
         sim.dt = min_P / 30
 
-        print(f"Sim {sim_id:<2d} | Step {i} of {len(stage_times)}      ", end="\r", flush=True)
+        # Print step number
+        # print(f"Sim {sim_id:<2d} | Step {i} of {len(stage_times)}      ", end="\r", flush=True)
         
         try:
             sim.integrate(t)

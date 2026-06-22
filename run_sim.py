@@ -21,13 +21,13 @@ m_earth = u.Mearth.to(u.Msun)
 r_sun = u.Rsun.to(u.AU) 
 
 # === RUNNING THE SIM ===       
-dataset_id = 3
+dataset_id = 4
 n_sims = 100
 
 def run_sim(sim_id):    
-    # Skip sims if needed
-    if sim_id < 50:
-        return
+    # # Skip sims if needed
+    # if sim_id < 50:
+    #     return
     
     # Set where to save the data
     base_dir = Path.cwd()
@@ -36,14 +36,14 @@ def run_sim(sim_id):
     # === PARAMETERS ===
     planets = {
         "name": ['planet b', 'planet c', 'planet d'],
-        "m_vals": [4, 4, 4], # [m_earth]
+        "m_vals": [3, 3, 3], # [m_earth]
         "a_vals": [1, 1, 1], # [AU]
         "r_vals": [10, 10, 10] # [r_earth]; twice the current values
     }
 
     num_pl = 3
-    num_em = 20
-    num_ptsml = 180
+    num_em = 0
+    num_ptsml = 0
 
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
