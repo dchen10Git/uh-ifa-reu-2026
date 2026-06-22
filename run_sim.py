@@ -26,8 +26,8 @@ n_sims = 100
 
 def run_sim(sim_id):    
     # # Skip sims if needed
-    # if sim_id < 50:
-    #     return
+    if sim_id >= 50:
+        return
     
     # Set where to save the data
     base_dir = Path.cwd()
@@ -59,7 +59,6 @@ def run_sim(sim_id):
     
     # Combine values for planets, ems, ptsmls
     m_vals = np.array(planets['m_vals'][:num_pl] + [m_em]*num_em + [m_ptsml]*num_ptsml) * m_earth
-                    # Younger planet is puffier
     r_vals = np.array(planets['r_vals'][:num_pl] + [r_em]*(num_em) + [r_ptsml]*num_ptsml) * r_earth
     m_star = 1. # Msun
     r_star = 1.5 * r_sun
@@ -75,10 +74,11 @@ def run_sim(sim_id):
     
     pebble_flux = 0/1000 # number per year
                                               # Converted to Msun/AU^2 from g/cm^2
-    tau_a = (2/(2.7+1.1*alpha)) / (4*m_earth) / (Sigma_1au*AU**2 / Msun) * h_1au**2 / (2*np.pi) # for a = 1
+    tau_a = (2/(2.7+1.1*alpha)) / (5*m_earth) / (Sigma_1au*AU**2 / Msun) * h_1au**2 / (2*np.pi) # for a = 1
     # tau_a /= 2 # for testing planets only
     tau_pl = tau_a/2 # planet formation timescale (set to tau_a/2, or tau_a/5 for planets only)
     years = 2.5*tau_a # Set to 2.5*tau_a of the first planet (or tau_a for planets only)
+    
     parameters = {"m_vals": m_vals,
                   "m_star": m_star,
                   "r_vals": r_vals,

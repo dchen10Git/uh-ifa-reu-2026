@@ -218,7 +218,7 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, particle_fate, has
 
             if 'ptsml' in name:
                 tau_a, tau_e, tau_i = tau_gas(rock, parameters)
-            elif 'planet' in name or 'ptsml' in name:
+            elif 'planet' in name or 'embryo' in name:
                 tau_a, tau_e, tau_i = tau_t1_mig(rock, parameters)
             
             rock.params["tau_a"] = tau_a
@@ -398,7 +398,7 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, integ
         years = np.clip(years, 1e3, 10e6)
         print(f"Sim {sim_id:<2d} | Years clipped to {years:.3e}")
             
-    print(f"Sim {sim_id:<2d} | {years/1000:.1f} kyr | Sigma_1au: {parameters['Sigma_1au']:.0f} | h_1au: {parameters['h_1au']:.3f}", flush=True)
+    print(f"Starting Sim {sim_id:<2d} | {years/1000:.1f} kyr | Sigma_1au: {parameters['Sigma_1au']:.0f} | h_1au: {parameters['h_1au']:.3f}", flush=True)
     
     # Loop until simulation successfully completes
     # data = False
