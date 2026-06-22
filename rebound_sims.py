@@ -137,12 +137,13 @@ def tau_t1_mig(rock, parameters):
     r = rock.d 
     e = rock.e
     inc = rock.inc
-    Sigma = (Sigma_1au * AU**2 / Msun) * r**alpha # Converted from g/cm^2
-    h = h_1au * r**beta # scale height
-
+    Sigma = (Sigma_1au * AU**2 / Msun) * r**-alpha # Converted from g/cm^2
+    h = h_1au * r**beta # scale height; if beta = 0, h = h_1au
+    
+    # Note the following formulas assume h = h_1au
     P = (1 + (e*r/(2.25*h))**1.2 + (e*r/(2.84*h))**6) / (1 - (e*r/(2.02*h))**4) # = 1 in low-e low-i limit
     t_wave = 1/(m_p) * (1/(Sigma*a**2)) * h**4 / np.sqrt(G/a**3) # Cresswell & Nelson 2008 Eq. 9 / Pichierri 2018 Eq. 3.3
-    t_a = 2*t_wave / (2.7 + 1.1*alpha) * h**-2 * (P + P/abs(P) * (0.070*inc/h + 0.085*(inc/h)**4 - 0.080*(e/(h))*(inc/(h))**2)) # Eq. 13
+    t_a = t_wave / (2.7 + 1.1*alpha) * h**-2 * (P + P/abs(P) * (0.070*inc/h + 0.085*(inc/h)**4 - 0.080*(e/h)*(inc/h)**2)) # Eq. 13 / Kajtazi 2023 Eq. 7
     t_e = t_wave / 0.780 * (1 - 0.14*(e/h)**2 + 0.06*(e/h)**3 + 0.18*(e/h)*(inc/h)**2) # Eq. 11
     t_i = t_wave / 0.544 * (1 - 0.3*(inc/h)**2 + 0.24*(inc/h)**3 + 0.14*(e/h)**2*(inc/h)) # Eq. 12
     
@@ -183,7 +184,7 @@ def tau_gas(rock, parameters):
     inc = rock.inc
     Omega_k = 2*np.pi/rock.P / yr # Keplerian orbital frequency, converted to 1/s
     
-    Sigma = Sigma_1au * (r/AU)**alpha
+    Sigma = Sigma_1au * (r/AU)**-alpha
     h = h_1au * (r/AU)**beta * AU # scale height in cm
     v_K = r*Omega_k # cm/s
         
@@ -202,7 +203,7 @@ def tau_gas(rock, parameters):
                         (inc**3)/(2*np.pi))) # Adachi 1976 Eq. 4.11
     t_e = t_0 / ((2*E)/(np.pi)*e + 2/np.pi*inc + eta) # Adachi 1976 Eq. 4.12
     t_i = t_0 / (1/2 * (2*E/np.pi*e + 8/(3*np.pi)*inc + eta)) # Adachi 1976 Eq. 4.13
-        
+
     return -t_a, -t_e, -t_i # Negative so damping
  
 def integrate_sim(sim, sim_id, rock_names, parameters, years, particle_fate, hash_to_name, start_time=0):
@@ -269,14 +270,14 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, particle_fate, has
         
         if num_pl > 1:
             if not c_added and t > tau_pl:
-                sim.add(m=m_vals[1], r=r_vals[1], a=a_vals[1], hash=rock_names[1], primary=star)
+                sim.add(m=m_vals[1], r=r_vals[1], a=a_vals[1], hash=rock_names[1], primary=star, M=np.random.uniform(0, 2*np.pi), inc=np.random.uniform(1e-4, 1e-3))
                 c_added = True
                 sim.N_active += 1
                 hash_to_name[int(sim.particles[-1].hash.value)] = rock_names[1]
                 removed_names.discard('planet c')
         if num_pl > 2:
             if not d_added and t > 2*tau_pl:
-                sim.add(m=m_vals[2], r=r_vals[2], a=a_vals[2], hash=rock_names[2], primary=star)
+                sim.add(m=m_vals[2], r=r_vals[2], a=a_vals[2], hash=rock_names[2], primary=star, M=np.random.uniform(0, 2*np.pi), inc=np.random.uniform(1e-4, 1e-3))
                 d_added = True
                 sim.N_active += 1
                 hash_to_name[int(sim.particles[-1].hash.value)] = rock_names[2]
