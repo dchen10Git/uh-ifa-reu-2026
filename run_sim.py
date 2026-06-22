@@ -21,14 +21,14 @@ m_earth = u.Mearth.to(u.Msun)
 r_sun = u.Rsun.to(u.AU) 
 
 # === RUNNING THE SIM ===       
-dataset_id = 10
-n_sims = 100
+dataset_id = 11
+n_sims = 1
 
 def run_sim(sim_id):    
     # Skip sims if needed
-    if sim_id not in [63, 72, 81, 90]:
-        print(f"Skipped {sim_id}")
-        return
+    # if sim_id not in [63, 72, 81, 90]:
+    #     print(f"Skipped {sim_id}                   ")
+    #     return
     
     # Set where to save the data
     base_dir = Path.cwd()
@@ -43,8 +43,8 @@ def run_sim(sim_id):
     }
 
     num_pl = 3
-    num_em = 15
-    num_ptsml = 150
+    num_em = 0
+    num_ptsml = 0
 
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
@@ -67,15 +67,16 @@ def run_sim(sim_id):
     a_vals = np.concatenate((planets['a_vals'][:num_pl], em_a_vals, ptsml_a_vals)) # Initial a_vals
     
     # Gas disk parameters
-    ide_position = 0.1 # Width is then determined with formula
+    ide_position = 0.1 
     Sigma_1au = 1700 * np.tile(np.logspace(-1, 1, num=10), 10)[sim_id] # Each row is the same
     h_1au = np.repeat(np.logspace(-2, -1, num=10), 10)[sim_id] # Each column is the same
     alpha = 1
     beta = 0
+    ide_width = ide_position * h_1au**beta # scale height at ide position
     
     pebble_flux = 0/1000 # number per year
                                               # Converted to Msun/AU^2 from g/cm^2
-    tau_a = (2/(2.7+1.1*alpha)) / (5*m_earth) / (Sigma_1au*AU**2 / Msun) * h_1au**2 / (2*np.pi) # for a = 1
+    tau_a = (2/(2.7+1.1*alpha)) / (4*m_earth) / (Sigma_1au*AU**2 / Msun) * h_1au**2 / (2*np.pi) # for a = 1
     tau_pl = tau_a/2 # planet formation timescale
     years = 2.5*tau_a # Set to 3*tau_a of the first planet
     parameters = {"m_vals": m_vals,
@@ -87,6 +88,7 @@ def run_sim(sim_id):
                   "num_em": num_em,
                   "num_ptsml": num_ptsml,
                   "ide_position": ide_position,
+                  "ide_width": ide_width,
                   "Sigma_1au": Sigma_1au,
                   "h_1au": h_1au,
                   "alpha": alpha,
@@ -116,7 +118,7 @@ if __name__ == "__main__":
     tstart = time()
 
     # === MULTIPROCESSING ===    
-    multiprocess = True
+    multiprocess = False
     
     if multiprocess:
         # Start a local Dask cluster
@@ -137,7 +139,7 @@ if __name__ == "__main__":
             cluster.close()
     else: # Don't use Dask, do one sim
         assert n_sims == 1
-        sim_id = 0
+        sim_id = 54
         
         run_sim(sim_id)
     
