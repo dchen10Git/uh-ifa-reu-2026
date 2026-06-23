@@ -1,23 +1,20 @@
 #!/bin/bash
 #SBATCH --job-name=ptsmls
-#SBATCH --output=sbatch0.out
+#SBATCH --output=sbatch_%a.out
 #SBATCH --time=24:00:00
 #SBATCH --cpus-per-task=25
 #SBATCH --account=pi-fabrycky
+#SBATCH --array=0-3
 
-echo Script started.
+echo "Script started."
+echo "Array task: ${SLURM_ARRAY_TASK_ID}"
 
-module avail Anaconda3
-
-echo Loaded Anaconda3.
+module load Anaconda3
 
 source activate myenv
 
-echo Environment activated.
+echo "Environment activated."
 
-/home/dchen10/.conda/envs/myenv/bin/python3 run_sim.py
+python3 run_sim.py ${SLURM_ARRAY_TASK_ID}
 
-echo Finished running.
-
-
-
+echo "Finished running."
