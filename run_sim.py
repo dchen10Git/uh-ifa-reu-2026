@@ -22,7 +22,7 @@ m_earth = u.Mearth.to(u.Msun)
 r_sun = u.Rsun.to(u.AU) 
 
 # === RUNNING THE SIM ===       
-dataset_id = 5
+dataset_id = 4
 
 # Job number passed from terminal line (or sbatch)
 job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
@@ -45,8 +45,8 @@ def run_sim(sim_id):
     }
 
     num_pl = 3
-    num_em = 0
-    num_ptsml = 0
+    num_em = 25
+    num_ptsml = 230
 
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
@@ -121,7 +121,7 @@ if __name__ == "__main__":
     tstart = time()
 
     # === MULTIPROCESSING ===    
-    multiprocess = False
+    multiprocess = True
     
     if multiprocess:
         # Start a local Dask cluster
