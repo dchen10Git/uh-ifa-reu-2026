@@ -21,13 +21,13 @@ m_earth = u.Mearth.to(u.Msun)
 r_sun = u.Rsun.to(u.AU) 
 
 # === RUNNING THE SIM ===       
-dataset_id = 0
-n_sims = 900
+dataset_id = 1
+n_sims = 400
 
 def run_sim(sim_id):    
     # # Skip sims if needed
-    if sim_id < 500:
-        return
+    # if sim_id < 500:
+    #     return
     
     # Set where to save the data
     base_dir = Path.cwd()
@@ -66,18 +66,18 @@ def run_sim(sim_id):
     
     # Gas disk parameters
     ide_position = 0.1 
-    Sigma_1au = np.tile(np.logspace(2.6, 4, num=30), 30)[sim_id] # Each row is the same
-    h_1au = np.repeat(np.logspace(-1.7, -1, num=30), 30)[sim_id] # Each column is the same
+    Sigma_1au = np.tile(np.logspace(2.6, 4, num=20), 20)[sim_id] # Each row is the same
+    h_1au = np.repeat(np.logspace(-1.7, -1, num=20), 20)[sim_id] # Each column is the same
     alpha = 1
-    beta = 0
+    beta = 0.25
     ide_width = ide_position * h_1au**beta # scale height at ide position
     
     pebble_flux = 0/1000 # number per year
                                               # Converted to Msun/AU^2 from g/cm^2
     tau_a = (2/(2.7+1.1*alpha)) / (5*m_earth) / (Sigma_1au*AU**2 / Msun) * h_1au**2 / (2*np.pi) # for a = 1
-    tau_pl = tau_a/20 # planet formation timescale (set to tau_a/2, or tau_a/5 for planets only)
-    years = tau_a # Set to 2.5*tau_a of the first planet (or tau_a for planets only)
-    
+    tau_pl = tau_a/200 # planet formation timescale (set to tau_a/2, or tau_a/200 for planets only)
+    years = tau_a/10 # Set to 2.5*tau_a of the first planet (or tau_a/10 for planets only)
+        
     parameters = {"m_vals": m_vals,
                   "m_star": m_star,
                   "r_vals": r_vals,
@@ -139,7 +139,7 @@ if __name__ == "__main__":
             cluster.close()
     else: # Don't use Dask, do one sim
         assert n_sims == 1
-        sim_id = 18
+        sim_id = 350
         
         run_sim(sim_id)
     

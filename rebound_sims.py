@@ -139,11 +139,11 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, particle_fate, has
     num_rocks = len(rock_names)
     
     # Set up times for integration & data collection
-    n_out = 100 # number of data points to collect
-    factor = int(np.ceil(years*5 / n_out)) # for good resolution (though a bit arbitrary)
+    n_out = 1000 # number of data points to collect
+    factor = int(np.ceil(1*years / n_out)) # resolution: currently 1 update per year
     stage_times = np.linspace(start_time, years+start_time, n_out*factor, endpoint=False)  # all times to integrate over
     data_times = stage_times[::factor]  # all times to save data
-    
+
     # Remove outer planet(s) at the beginning
     if num_pl > 1:
         sim.remove(hash='planet c')
@@ -218,23 +218,25 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, particle_fate, has
 
             if 'ptsml' in name:
                 tau_a, tau_e, tau_i = tau_gas(rock, parameters)
-                
                 rock.params["tau_a"] = tau_a
                 rock.params["tau_e"] = tau_e
                 rock.params["tau_inc"] = tau_i
-            # elif 'planet' in name or 'embryo' in name:
-            #     tau_a, tau_e, tau_i = tau_t1_mig(rock, parameters)
-            
+            elif 'planet' in name or 'embryo' in name:
+                tau_a, tau_e, tau_i = tau_t1_mig(rock, parameters)
+                rock.params["tau_a"] = tau_a
+                rock.params["tau_e"] = tau_e
+                rock.params["tau_inc"] = tau_i
+            else:
+                tau_a, tau_e, tau_i = np.nan, np.nan, np.nan
             
             # Save data only at some times
             if i % factor == 0:
                 data_i = i // factor
-                if 'ptsml' in name:
-                    hist["tau_a"][data_i,j], hist["tau_e"][data_i,j], hist["tau_i"][data_i,j] = tau_a, tau_e, tau_i
+                hist["tau_a"][data_i,j], hist["tau_e"][data_i,j], hist["tau_i"][data_i,j] = tau_a, tau_e, tau_i
                 hist["a"][data_i,j], hist["e"][data_i,j], hist["inc"][data_i,j] = orb.a, orb.e, orb.inc
                 hist["P"][data_i,j], hist["l"][data_i,j], hist["pomega"][data_i,j] = orb.P, orb.l, orb.pomega
                 # Print step number
-                # print(f"Sim {sim_id:<2d} | Step {data_i} of {n_out}               ", end="\r", flush=True)
+                print(f"Sim {sim_id:<2d} | Step {data_i} of {n_out}               ", end="\r", flush=True)
         
             alive_rock_names.append(name)
             if orb.P < min_P:
@@ -391,21 +393,20 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, integ
     # Reboundx effects
     rebx = reboundx.Extras(sim)
     
-    # Only add mof for gas drag if ptsmls exist
-    # mof = rebx.load_force("modify_orbits_forces")
-    # rebx.add_force(mof)
+    mof = rebx.load_force("modify_orbits_forces")
+    rebx.add_force(mof)
     
-    # REBOUNDx implementation of Type I migration (for debugging)
-    mig = rebx.load_force("type_I_migration")
-    rebx.add_force(mig)
+    # # REBOUNDx implementation of Type I migration (for debugging)
+    # mig = rebx.load_force("type_I_migration")
+    # rebx.add_force(mig)
 
-    # REBOUNDx Type I migration implementation
-    mig.params["tIm_surface_density_1"] = parameters['Sigma_1au'] * AU**2 / Msun # Converted to Msun/AU^2 from g/cm^2
-    mig.params["tIm_surface_density_exponent"] = parameters['alpha']
-    mig.params["tIm_scale_height_1"] = parameters['h_1au']
-    mig.params["tIm_flaring_index"] = parameters['beta']
-    mig.params["ide_position"] = parameters["ide_position"]
-    mig.params["ide_width"] = parameters['ide_width']
+    # # REBOUNDx Type I migration implementation
+    # mig.params["tIm_surface_density_1"] = parameters['Sigma_1au'] * AU**2 / Msun # Converted to Msun/AU^2 from g/cm^2
+    # mig.params["tIm_surface_density_exponent"] = parameters['alpha']
+    # mig.params["tIm_scale_height_1"] = parameters['h_1au']
+    # mig.params["tIm_flaring_index"] = parameters['beta']
+    # mig.params["ide_position"] = parameters["ide_position"]
+    # mig.params["ide_width"] = parameters['ide_width']
     
     # Clip years if needed
     if years < 1e3 or years > 10e6:

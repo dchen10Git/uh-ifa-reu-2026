@@ -34,14 +34,14 @@ def tau_t1_mig(rock, parameters):
     # Everything should be in simulation units
     m_p = rock.m
     a = rock.a
-    r = rock.d 
+    r = rock.d
     e = rock.e
     inc = rock.inc
     Sigma = (Sigma_1au * AU**2 / Msun) * r**-alpha # Converted from g/cm^2
     h = h_1au * r**beta # scale height; if beta = 0, h = h_1au
     
     # Note the following formulas assume h = h_1au
-    P = (1 + (e*r/(2.25*h))**1.2 + (e*r/(2.84*h))**6) / (1 - (e*r/(2.02*h))**4) # = 1 in low-e low-i limit
+    P = (1 + (e/(2.25*h))**1.2 + (e/(2.84*h))**6) / (1 - (e/(2.02*h))**4) # = 1 in low-e low-i limit
     t_wave = 1/(m_p) * (1/(Sigma*a**2)) * h**4 / np.sqrt(G/a**3) # Cresswell & Nelson 2008 Eq. 9 / Pichierri 2018 Eq. 3.3
     t_a = t_wave / (2.7 + 1.1*alpha) * h**-2 * (P + P/abs(P) * (0.070*inc/h + 0.085*(inc/h)**4 - 0.080*(e/h)*(inc/h)**2)) # Eq. 13 / Kajtazi 2023 Eq. 7
     t_e = t_wave / 0.780 * (1 - 0.14*(e/h)**2 + 0.06*(e/h)**3 + 0.18*(e/h)*(inc/h)**2) # Eq. 11
@@ -51,7 +51,7 @@ def tau_t1_mig(rock, parameters):
     if a >= d_edge*(1+h_edge):
         tau_a_red = 1
     elif d_edge*(1-h_edge) <= a <= d_edge*(1+h_edge):
-        tau_a_red = 5.5 * np.cos(((d_edge*(1+h_edge)-a)*2*np.pi) / (4*h_edge*d_edge))
+        tau_a_red = 5.5 * np.cos(((d_edge*(1+h_edge)-a)*2*np.pi) / (4*h_edge*d_edge)) - 4.5
     elif 0 <= a <= d_edge*(1-h_edge):
         tau_a_red = -10
     else: 
