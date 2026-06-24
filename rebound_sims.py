@@ -138,7 +138,7 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, particle_fate, has
     num_rocks = len(rock_names)
     
     # Set up times for integration & data collection
-    n_out = 1000 # number of data points to collect
+    n_out = 200 # number of data points to collect
     factor = int(np.ceil(2*years / n_out)) # resolution: currently 1 update per year
     stage_times = np.linspace(start_time, years+start_time, n_out*factor, endpoint=False)  # all times to integrate over
     data_times = stage_times[::factor]  # all times to save data
@@ -235,7 +235,7 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, particle_fate, has
                 hist["a"][data_i,j], hist["e"][data_i,j], hist["inc"][data_i,j] = orb.a, orb.e, orb.inc
                 hist["P"][data_i,j], hist["l"][data_i,j], hist["pomega"][data_i,j] = orb.P, orb.l, orb.pomega
                 # Print step number
-                print(f"Sim {sim_id:<2d} | Step {data_i} of {n_out}               ", end="\r", flush=True)
+                # print(f"Sim {sim_id:<2d} | Step {data_i} of {n_out}               ", end="\r", flush=True)
         
             alive_rock_names.append(name)
             if orb.P < min_P:
