@@ -22,7 +22,7 @@ m_earth = u.Mearth.to(u.Msun)
 r_sun = u.Rsun.to(u.AU) 
 
 # === RUNNING THE SIM ===       
-dataset_id = 6
+dataset_id = 2
 
 # Job number passed from terminal line (or sbatch)
 job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
@@ -121,7 +121,7 @@ if __name__ == "__main__":
     tstart = time()
 
     # === MULTIPROCESSING ===    
-    multiprocess = True
+    multiprocess = False
     
     if multiprocess:
         # Start a local Dask cluster

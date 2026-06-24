@@ -139,7 +139,7 @@ ORBIT_ALPHA = {
 def build_animation(
     sim_data, metadata, rock_names,
     num_pl, num_em, num_ptsml, times,
-    n_frames=300,
+    n_frames=200,
     fps=24,
     draw_orbits=True,
     xlim=(-2, 2),
@@ -150,7 +150,7 @@ def build_animation(
 
     # Subsample timesteps evenly
     frame_idxs = np.linspace(0, len(times) - 1, n_frames, dtype=int)
-    frame_idxs = np.arange(0, 300) # <- to see first 300 frames
+    # frame_idxs = np.arange(0, 300) # <- to see first 300 frames
 
     fig, ax = plt.subplots(figsize=(6, 6), facecolor="k")
     ax.set_facecolor("k")
@@ -308,7 +308,7 @@ def main():
     parser = argparse.ArgumentParser(description="Generate top-down orbital evolution video.")
     parser.add_argument("--dataset",    type=int, default=0,      help="dataset_id")
     parser.add_argument("--sim",        type=int, default=54,     help="sim_id")
-    parser.add_argument("--frames",     type=int, default=300,    help="Number of animation frames")
+    parser.add_argument("--frames",     type=int, default=200,    help="Number of animation frames")
     parser.add_argument("--fps",        type=int, default=24,     help="Frames per second")
     parser.add_argument("--no-orbits",  action="store_true",      help="Skip drawing orbit ellipses")
     parser.add_argument("--xlim",       type=float, default=2,  help="Half-width of x axis (AU)")
