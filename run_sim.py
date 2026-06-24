@@ -22,12 +22,12 @@ m_earth = u.Mearth.to(u.Msun)
 r_sun = u.Rsun.to(u.AU) 
 
 # === RUNNING THE SIM ===       
-dataset_id = 4
+dataset_id = 6
 
 # Job number passed from terminal line (or sbatch)
 job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
 
-sims_per_job = 25
+sims_per_job = 50
 start_sim = job_id * sims_per_job
 end_sim = start_sim + sims_per_job
 
@@ -45,8 +45,8 @@ def run_sim(sim_id):
     }
 
     num_pl = 3
-    num_em = 25
-    num_ptsml = 230
+    num_em = 0
+    num_ptsml = 0
 
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
@@ -69,8 +69,8 @@ def run_sim(sim_id):
     
     # Gas disk parameters
     ide_position = 0.1 
-    Sigma_1au = np.tile(np.logspace(2.6, 4, num=10), 10)[sim_id] # Each row is the same
-    h_1au = np.repeat(np.logspace(-1.7, -1, num=10), 10)[sim_id] # Each column is the same
+    Sigma_1au = np.tile(np.logspace(2.6, 4, num=30), 30)[sim_id] # Each row is the same
+    h_1au = np.repeat(np.logspace(-1.7, -1, num=30), 30)[sim_id] # Each column is the same
     alpha = 1
     beta = 0
     ide_width = ide_position * h_1au**beta # scale height at ide position

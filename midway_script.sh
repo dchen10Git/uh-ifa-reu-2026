@@ -4,7 +4,7 @@
 #SBATCH --time=24:00:00
 #SBATCH --cpus-per-task=10
 #SBATCH --account=pi-fabrycky
-#SBATCH --array=0-3
+#SBATCH --array=0-17
 
 echo "Script started."
 echo "Array task: ${SLURM_ARRAY_TASK_ID}"
