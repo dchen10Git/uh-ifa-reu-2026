@@ -139,7 +139,7 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, particle_fate, has
     
     # Set up times for integration & data collection
     n_out = 200 # number of data points to collect
-    factor = int(np.ceil(2*years / n_out)) # resolution: currently 1 update per year
+    factor = int(np.ceil(2*years / n_out)) # resolution (2 updates per year)
     stage_times = np.linspace(start_time, years+start_time, n_out*factor, endpoint=False)  # all times to integrate over
     data_times = stage_times[::factor]  # all times to save data
 

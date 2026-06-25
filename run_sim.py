@@ -4,6 +4,7 @@ from astropy import units as u
 from pathlib import Path
 from time import time
 from dask.distributed import Client, LocalCluster
+from scipy.stats import loguniform
 
 import sys
 import os
@@ -22,7 +23,7 @@ m_earth = u.Mearth.to(u.Msun)
 r_sun = u.Rsun.to(u.AU) 
 
 # === RUNNING THE SIM ===       
-dataset_id = 2
+dataset_id = 8
 
 # Job number passed from terminal line (or sbatch)
 job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
@@ -31,7 +32,7 @@ sims_per_job = 50
 start_sim = job_id * sims_per_job
 end_sim = start_sim + sims_per_job
 
-def run_sim(sim_id):    
+def run_sim(sim_id):        
     # Set where to save the data
     base_dir = Path.cwd()
     file_path = base_dir.parent / "sim_results" / f"dataset{dataset_id}" / f"sim{sim_id}.h5"
@@ -45,8 +46,8 @@ def run_sim(sim_id):
     }
 
     num_pl = 3
-    num_em = 0
-    num_ptsml = 0
+    num_em = 10
+    num_ptsml = 100
 
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
@@ -69,8 +70,16 @@ def run_sim(sim_id):
     
     # Gas disk parameters
     ide_position = 0.1 
-    Sigma_1au = np.tile(np.logspace(2.6, 4, num=30), 30)[sim_id] # Each row is the same
-    h_1au = np.repeat(np.logspace(-1.7, -1, num=30), 30)[sim_id] # Each column is the same
+    
+    # Full parameter space
+    # Sigma_1au = np.tile(np.logspace(2.6, 4, num=30), 30)[sim_id] # Each row is the same
+    # h_1au = np.repeat(np.logspace(-1.7, -1, num=30), 30)[sim_id] # Each column is the same
+
+    # Zoomed-in, random
+    rng = np.random.default_rng(sim_id)
+    Sigma_1au = loguniform.rvs(10**(454/145), 10**(517/145), random_state=rng)
+    h_1au = loguniform.rvs(10**(-437/290), 10**(-187/145), random_state=rng)
+    
     alpha = 1
     beta = 0
     ide_width = ide_position * h_1au**beta # scale height at ide position
@@ -80,7 +89,7 @@ def run_sim(sim_id):
     tau_a = (2/(2.7+1.1*alpha)) / (5*m_earth) / (Sigma_1au*AU**2 / Msun) * h_1au**2 / (2*np.pi) # for a = 1
     tau_pl = tau_a/2 # planet formation timescale (set to tau_a/2, or tau_a/200 for planets only)
     years = 2.5*tau_a # Set to 2.5*tau_a of the first planet (or tau_a/2 for planets only)
-        
+            
     parameters = {"m_vals": m_vals,
                   "m_star": m_star,
                   "r_vals": r_vals,
@@ -121,27 +130,20 @@ if __name__ == "__main__":
     tstart = time()
 
     # === MULTIPROCESSING ===    
-    multiprocess = False
+    # Start a local Dask cluster
+    n_cpus = int(os.environ.get("SLURM_CPUS_PER_TASK", 1))
+    print(f"CPUs: {n_cpus}")
+    cluster = LocalCluster()    
+    client = Client(cluster)
     
-    if multiprocess:
-        # Start a local Dask cluster
-        n_cpus = int(os.environ.get("SLURM_CPUS_PER_TASK", 1))
-        print(f"CPUs: {n_cpus}")
-        cluster = LocalCluster()    
-        client = Client(cluster)
-        
-        futures = [
-            client.submit(run_sim, sim_id)
-            for sim_id in range(start_sim, end_sim)
-        ]
-        client.gather(futures)
+    futures = [
+        client.submit(run_sim, sim_id)
+        for sim_id in range(start_sim, end_sim)
+    ]
+    client.gather(futures)
 
-        client.close()
-        cluster.close()
-        
-    else: # Don't use Dask, do one sim
-        sim_id = 54
-        run_sim(sim_id)
+    client.close()
+    cluster.close()
     
     print(f'Time elapsed: {int(time()-tstart)} sec')
     
