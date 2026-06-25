@@ -69,7 +69,7 @@ def threeBR_angle(b, c, d, p_bc, q_bc, p_cd, q_cd):
 def libration_amp(angles, N):
     '''Calculates libration amplitude of angles using last N samples'''
     mean_angle = np.average(angles[-N:])
-    return np.sqrt(2/N * np.sum((angles[-N:]-mean_angle)**2))
+    return np.sqrt(2/N * np.sum((angles[-N:]-mean_angle)**2 % 360))
 
 def last_P(m_star, b):
     '''Returns the period value given m_star and planet dateframe'''
@@ -136,7 +136,7 @@ def plot_libration(m_star, b, c, d=None, t_units='kyr', N=100, forced_pq=None, p
         plt.grid(True)
         plt.show()
 
-def check_resonance(m_star, b, c, d=None, N=100, amp_threshold=90):
+def check_resonance(m_star, b, c, d=None, N=100, amp_threshold=90, pomega='mixed'):
     '''
     Given m_star and planet dataframes, returns the resonance ratios if resonance is
     detected, otherwise returns (0,0) for 2BR and ((0,0), (0,0)) for 3BR.
@@ -150,7 +150,7 @@ def check_resonance(m_star, b, c, d=None, N=100, amp_threshold=90):
             return (0,0)
         
         else: # resonance detected
-            twoBR = np.rad2deg(twoBR_angle(b, c, p, q)) % 360 # mod 360 so it wraps
+            twoBR = np.rad2deg(twoBR_angle(b, c, p, q, pomega=pomega)) % 360 # mod 360 so it wraps
             amp = libration_amp(twoBR, N)
             if amp < amp_threshold: # criterion for libration
                 return (p,q)

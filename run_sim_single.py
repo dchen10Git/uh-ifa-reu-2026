@@ -22,8 +22,8 @@ m_earth = u.Mearth.to(u.Msun)
 r_sun = u.Rsun.to(u.AU) 
 
 # === RUNNING THE SIM ===       
-dataset_id = 'direct'
-sim_id = 329
+dataset_id = 'fix'
+sim_id = 404
 
 dataset_dir = Path.cwd().parent / "sim_results" / f"dataset{dataset_id}"
     

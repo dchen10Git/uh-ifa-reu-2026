@@ -72,13 +72,13 @@ def run_sim(sim_id):
     ide_position = 0.1 
     
     # Full parameter space
-    # Sigma_1au = np.tile(np.logspace(2.6, 4, num=30), 30)[sim_id] # Each row is the same
-    # h_1au = np.repeat(np.logspace(-1.7, -1, num=30), 30)[sim_id] # Each column is the same
+    Sigma_1au = np.tile(np.logspace(2.6, 4, num=30), 30)[sim_id] # Each row is the same
+    h_1au = np.repeat(np.logspace(-1.7, -1, num=30), 30)[sim_id] # Each column is the same
 
-    # Zoomed-in, random
-    rng = np.random.default_rng(sim_id)
-    Sigma_1au = loguniform.rvs(10**(454/145), 10**(517/145), random_state=rng)
-    h_1au = loguniform.rvs(10**(-437/290), 10**(-187/145), random_state=rng)
+    # # Zoomed-in, random
+    # rng = np.random.default_rng(sim_id)
+    # Sigma_1au = loguniform.rvs(10**(454/145), 10**(517/145), random_state=rng)
+    # h_1au = loguniform.rvs(10**(-437/290), 10**(-187/145), random_state=rng)
     
     alpha = 1
     beta = 0
