@@ -235,7 +235,7 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, particle_fate, has
                 hist["a"][data_i,j], hist["e"][data_i,j], hist["inc"][data_i,j] = orb.a, orb.e, orb.inc
                 hist["P"][data_i,j], hist["l"][data_i,j], hist["pomega"][data_i,j] = orb.P, orb.l, orb.pomega
                 # Print step number
-                print(f"Sim {sim_id:<2d} | Step {data_i} of {n_out}               ", end="\r", flush=True)
+                # print(f"Sim {sim_id:<2d} | Step {data_i} of {n_out}               ", end="\r", flush=True)
         
             alive_rock_names.append(name)
             if orb.P < min_P:
