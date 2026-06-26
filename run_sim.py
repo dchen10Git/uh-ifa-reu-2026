@@ -22,17 +22,7 @@ r_earth = u.earthRad.to(u.AU)
 m_earth = u.Mearth.to(u.Msun)
 r_sun = u.Rsun.to(u.AU) 
 
-# === RUNNING THE SIM ===       
-dataset_id = 8
-
-# Job number passed from terminal line (or sbatch)
-job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
-
-sims_per_job = 50
-start_sim = job_id * sims_per_job
-end_sim = start_sim + sims_per_job
-
-def run_sim(sim_id):        
+def run_sim(dataset_id, sim_id):        
     # Set where to save the data
     base_dir = Path.cwd()
     file_path = base_dir.parent / "sim_results" / f"dataset{dataset_id}" / f"sim{sim_id}.h5"
@@ -89,7 +79,7 @@ def run_sim(sim_id):
     tau_a = (2/(2.7+1.1*alpha)) / (5*m_earth) / (Sigma_1au*AU**2 / Msun) * h_1au**2 / (2*np.pi) # for a = 1
     tau_pl = tau_a/2 # planet formation timescale (set to tau_a/2, or tau_a/200 for planets only)
     years = 2.5*tau_a # Set to 2.5*tau_a of the first planet (or tau_a/2 for planets only)
-            
+
     parameters = {"m_vals": m_vals,
                   "m_star": m_star,
                   "r_vals": r_vals,
@@ -120,6 +110,15 @@ def run_sim(sim_id):
         return # Allow continuation of other sims
     
 if __name__ == "__main__":
+    dataset_id = 8
+    
+    # Job number passed from terminal line (or sbatch)
+    job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
+
+    sims_per_job = 50
+    start_sim = job_id * sims_per_job
+    end_sim = start_sim + sims_per_job
+    
     dataset_dir = Path.cwd().parent / "sim_results" / f"dataset{dataset_id}"
     
     # Create the folder
@@ -136,10 +135,7 @@ if __name__ == "__main__":
     cluster = LocalCluster()    
     client = Client(cluster)
     
-    futures = [
-        client.submit(run_sim, sim_id)
-        for sim_id in range(start_sim, end_sim)
-    ]
+    futures = [client.submit(run_sim, dataset_id, sim_id) for sim_id in range(start_sim, end_sim)]
     client.gather(futures)
 
     client.close()
