@@ -36,8 +36,8 @@ def run_sim(dataset_id, sim_id):
     }
 
     num_pl = 3
-    num_em = 2
-    num_ptsml = 10
+    num_em = 10
+    num_ptsml = 100
 
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
@@ -79,6 +79,7 @@ def run_sim(dataset_id, sim_id):
     tau_a = (2/(2.7+1.1*alpha)) / (5*m_earth) / (Sigma_1au*AU**2 / Msun) * h_1au**2 / (2*np.pi) # for a = 1
     tau_pl = tau_a/2 # planet formation timescale (set to tau_a/2, or tau_a/200 for planets only)
     years = 2.5*tau_a # Set to 2.5*tau_a of the first planet (or tau_a/2 for planets only)
+    n_out = 100
 
     parameters = {"m_vals": m_vals,
                   "m_star": m_star,
@@ -103,19 +104,19 @@ def run_sim(dataset_id, sim_id):
     
     # Sim integration!
     try:
-        reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, years=years, integrator="trace")
+        reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, years, n_out, print_step=False, integrator="trace")
     except Exception as e:
         print(f"Sim {sim_id} | Unexpected error: {e}")
         # raise # Use this for debug traceback
         return # Allow continuation of other sims
     
 if __name__ == "__main__":
-    dataset_id = 9
+    dataset_id = 'test'
     
     # Job number passed from terminal line (or sbatch)
     job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
 
-    sims_per_job = 50
+    sims_per_job = 60
     start_sim = job_id * sims_per_job
     end_sim = start_sim + sims_per_job
     

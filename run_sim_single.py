@@ -1,9 +1,6 @@
 # === IMPORTS ===
-import numpy as np
-from astropy import units as u
 from pathlib import Path
 from time import time
-
 import sys
 import warnings
 warnings.filterwarnings('ignore')
@@ -12,7 +9,7 @@ from run_sim import run_sim
 # === RUNNING THE SIM ===
 assert len(sys.argv) == 3
 dataset_id = sys.argv[1]
-sim_id = sys.argv[1]
+sim_id = int(sys.argv[2])
 
 dataset_dir = Path.cwd().parent / "sim_results" / f"dataset{dataset_id}"
     
