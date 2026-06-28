@@ -142,7 +142,7 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, n_out, particle_fa
     stage_times = np.linspace(start_time, years+start_time, n_out*factor, endpoint=False)  # all times to integrate over
     data_times = stage_times[::factor]  # all times to save data
 
-    # Remove outer planet(s) at the beginning
+    # "Remove" outer planet(s) at the beginning
     if num_pl > 1:
         planet_c = sim.particles[2]
         planet_c.m = 0
