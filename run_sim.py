@@ -22,10 +22,7 @@ r_earth = u.earthRad.to(u.AU)
 m_earth = u.Mearth.to(u.Msun)
 r_sun = u.Rsun.to(u.AU) 
 
-def run_sim(dataset_id, sim_id):     
-    if sim_id not in [572, 586, 587, 590, 592, 594, 595, 596, 597, 598, 599, 639, 641, 642, 643, 644, 645, 646, 647, 648, 649, 650, 651, 652, 653, 654, 655, 656, 657, 658, 659]:
-        return
-    
+def run_sim(dataset_id, sim_id):         
     # Set where to save the data
     base_dir = Path.cwd()
     file_path = base_dir.parent / "sim_results" / f"dataset{dataset_id}" / f"sim{sim_id}.h5"
@@ -39,8 +36,8 @@ def run_sim(dataset_id, sim_id):
     }
 
     num_pl = 3
-    num_em = 10
-    num_ptsml = 100
+    num_em = 25
+    num_ptsml = 230
 
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
@@ -107,19 +104,19 @@ def run_sim(dataset_id, sim_id):
     
     # Sim integration!
     try:
-        reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, years, n_out, print_step=False, integrator="trace")
+        reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, years, n_out, print_step=True, integrator="trace")
     except Exception as e:
         print(f"Sim {sim_id} | Unexpected error: {e}")
         # raise # Use this for debug traceback
         return # Allow continuation of other sims
     
 if __name__ == "__main__":
-    dataset_id = 7
+    dataset_id = 8
     
     # Job number passed from terminal line (or sbatch)
     job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
 
-    sims_per_job = 644
+    sims_per_job = 1
     start_sim = job_id * sims_per_job
     end_sim = start_sim + sims_per_job
     
