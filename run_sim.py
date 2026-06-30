@@ -96,6 +96,8 @@ def run_sim(dataset_id, sim_id):
                   "alpha": alpha,
                   "beta": beta,
                   "pebble_flux": pebble_flux,
+                  "m_em": m_em,
+                  "r_em": r_em,
                   "m_ptsml": m_ptsml,
                   "r_ptsml": r_ptsml,
                   "tau_pl": tau_pl,
