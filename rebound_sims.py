@@ -216,23 +216,23 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, n_out, particle_fa
                 print(f"{name} removed; {fate}")
                 continue
 
-            if 'ptsml' in name:
-                tau_a, tau_e, tau_i = tau_gas(rock, parameters)
-                rock.params["tau_a"] = tau_a
-                rock.params["tau_e"] = tau_e
-                rock.params["tau_inc"] = tau_i
-            elif 'planet' in name or 'embryo' in name:
-                tau_a, tau_e, tau_i = tau_t1_mig(rock, parameters)
-                rock.params["tau_a"] = tau_a
-                rock.params["tau_e"] = tau_e
-                rock.params["tau_inc"] = tau_i
-            else:
-                tau_a, tau_e, tau_i = np.nan, np.nan, np.nan
+            # if 'ptsml' in name:
+            #     tau_a, tau_e, tau_i = tau_gas(rock, parameters)
+            #     rock.params["tau_a"] = tau_a
+            #     rock.params["tau_e"] = tau_e
+            #     rock.params["tau_inc"] = tau_i
+            # elif 'planet' in name or 'embryo' in name:
+            #     tau_a, tau_e, tau_i = tau_t1_mig(rock, parameters)
+            #     rock.params["tau_a"] = tau_a
+            #     rock.params["tau_e"] = tau_e
+            #     rock.params["tau_inc"] = tau_i
+            # else:
+            #     tau_a, tau_e, tau_i = np.nan, np.nan, np.nan
             
             # Save data only at some times
             if i % factor == 0:
                 data_i = i // factor
-                hist["tau_a"][data_i,j], hist["tau_e"][data_i,j], hist["tau_i"][data_i,j] = tau_a, tau_e, tau_i
+                # hist["tau_a"][data_i,j], hist["tau_e"][data_i,j], hist["tau_i"][data_i,j] = tau_a, tau_e, tau_i
                 hist["a"][data_i,j], hist["e"][data_i,j], hist["inc"][data_i,j] = orb.a, orb.e, orb.inc
                 hist["P"][data_i,j], hist["l"][data_i,j], hist["pomega"][data_i,j] = orb.P, orb.l, orb.pomega
                 # Print step number
@@ -398,8 +398,19 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, n_out
     # Reboundx effects
     rebx = reboundx.Extras(sim)
     
-    mof = rebx.load_force("modify_orbits_forces")
-    rebx.add_force(mof)
+    # mof = rebx.load_force("modify_orbits_forces")
+    # rebx.add_force(mof)
+    
+    force = rebx.load_force("IDE_typeI")
+    force.params["rx"] = parameters["ide_position"]
+    force.params["w"] = parameters['ide_width']
+    force.params["tIm_surface_density_1"] = parameters['Sigma_1au'] * AU**2 / Msun
+    force.params["tIm_sd0_exponent"] = parameters['alpha']
+    force.params["tIm_scale_height_1"] = parameters['h_1au']
+    force.params["tIm_flaring_index"] = parameters['beta']
+    force.params["zeta"] = 1.0
+    
+    rebx.add_force(force)
     
     # # REBOUNDx implementation of Type I migration (for debugging)
     # mig = rebx.load_force("type_I_migration")

@@ -36,8 +36,8 @@ def run_sim(dataset_id, sim_id):
     }
 
     num_pl = 3
-    num_em = 25
-    num_ptsml = 230
+    num_em = 0
+    num_ptsml = 0
 
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
@@ -65,6 +65,9 @@ def run_sim(dataset_id, sim_id):
     Sigma_1au = np.tile(np.logspace(2.6, 4, num=30), 30)[sim_id] # Each row is the same
     h_1au = np.repeat(np.logspace(-1.7, -1, num=30), 30)[sim_id] # Each column is the same
 
+    Sigma_1au = 1700
+    h_1au = 0.03
+    
     # # Zoomed-in, random
     # rng = np.random.default_rng(sim_id)
     # Sigma_1au = loguniform.rvs(10**(454/145), 10**(517/145), random_state=rng)

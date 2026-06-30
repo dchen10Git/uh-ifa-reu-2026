@@ -58,7 +58,6 @@ def tau_t1_mig(rock, parameters):
         tau_a_red = 1e-32 # no damping
     
     t_a /= tau_a_red
-        
     return -t_a, -t_e, -t_i # Negative so damping
   
 def tau_gas(rock, parameters):
