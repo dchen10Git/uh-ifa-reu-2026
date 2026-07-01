@@ -64,9 +64,6 @@ def run_sim(dataset_id, sim_id):
     # Full parameter space
     Sigma_1au = np.tile(np.logspace(2.6, 4, num=30), 30)[sim_id] # Each row is the same
     h_1au = np.repeat(np.logspace(-1.7, -1, num=30), 30)[sim_id] # Each column is the same
-
-    Sigma_1au = 5000
-    h_1au = 0.03
     
     # # Zoomed-in, random
     # rng = np.random.default_rng(sim_id)
@@ -75,15 +72,14 @@ def run_sim(dataset_id, sim_id):
     
     alpha = 1
     beta = 0
-    # ide_width = ide_position * h_1au**beta # scale height at ide position
-    ide_width = 0.01
+    ide_width = ide_position * h_1au**beta # scale height at ide position
     
     pebble_flux = 0/1000 # number per year
                                               # Converted to Msun/AU^2 from g/cm^2
-    tau_a = (2/(2.7+1.1*alpha)) / (5*m_earth) / (Sigma_1au*AU**2 / Msun) * h_1au**2 / (2*np.pi) # for a = 1
-    tau_pl = tau_a/2 # planet formation timescale (set to tau_a/2, or tau_a/200 for planets only)
-    years = 2.5*tau_a # Set to 2.5*tau_a of the first planet (or tau_a/2 for planets only)
-    n_out = 1000
+    tau_a = 1/(2.7+1.1*alpha) / m_vals[0] / (Sigma_1au*AU**2 / Msun) * h_1au**2 / (2*np.pi) # for a = 1
+    tau_pl = tau_a # planet formation timescale (set to tau_a, or tau_a/1000 for planets only)
+    years = 6*tau_a # Set to 6*tau_a of the first planet (or tau_a for planets only)
+    n_out = 100
     
     zeta = 1
 
@@ -116,7 +112,7 @@ def run_sim(dataset_id, sim_id):
         reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, years, n_out, print_step=True, integrator="trace")
     except Exception as e:
         print(f"Sim {sim_id} | Unexpected error: {e}")
-        # raise # Use this for debug traceback
+        raise # Use this for debug traceback
         return # Allow continuation of other sims
     
 if __name__ == "__main__":
