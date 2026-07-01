@@ -1,5 +1,6 @@
 # === IMPORTS ===
 import numpy as np
+from scipy import special
 from astropy import units as u
 import warnings
 warnings.filterwarnings('ignore')
@@ -37,27 +38,42 @@ def tau_t1_mig(rock, parameters):
     r = rock.d
     e = rock.e
     inc = rock.inc
+    
+    # New IDE model with Phi
+    arg = (a-d_edge) / h_edge
+    Phi = 0.5*(1 + special.erf(arg))
+    seff = alpha - parameters['zeta'] * a * np.exp(-(arg**2)) / (Phi * np.sqrt(np.pi) * h_edge)
+    TorqC = (2.5 - 0.5 - 0.1*seff) + 1.4 - 1.1*(1.5 - seff)
+    
     Sigma = (Sigma_1au * AU**2 / Msun) * r**-alpha # Converted from g/cm^2
     h = h_1au * r**beta # scale height; if beta = 0, h = h_1au
     
     # Note the following formulas assume h = h_1au
     P = (1 + (e/(2.25*h))**1.2 + (e/(2.84*h))**6) / (1 - (e/(2.02*h))**4) # = 1 in low-e low-i limit
     t_wave = 1/(m_p) * (1/(Sigma*a**2)) * h**4 / np.sqrt(G/a**3) # Cresswell & Nelson 2008 Eq. 9 / Pichierri 2018 Eq. 3.3
-    t_a = t_wave / (2.7 + 1.1*alpha) * h**-2 * (P + P/abs(P) * (0.070*inc/h + 0.085*(inc/h)**4 - 0.080*(e/h)*(inc/h)**2)) # Eq. 13 / Kajtazi 2023 Eq. 7
+    
+    # Old t_a
+    # t_a = t_wave / (2.7 + 1.1*alpha) * h**-2 * (P + P/abs(P) * (0.070*inc/h + 0.085*(inc/h)**4 - 0.080*(e/h)*(inc/h)**2)) # Eq. 13 / Kajtazi 2023 Eq. 7
+    
+    # New t_a 
+    t_wave_eff = 1/(m_p) * (1/(Sigma*Phi*a**2)) * h**4 / np.sqrt(G/a**3) # factor of Phi added
+    t_a = t_wave_eff / TorqC * h**-2 * (P + P/abs(P) * (0.070*inc/h + 0.085*(inc/h)**4 - 0.080*(e/h)*(inc/h)**2))
+    
     t_e = t_wave / 0.780 * (1 - 0.14*(e/h)**2 + 0.06*(e/h)**3 + 0.18*(e/h)*(inc/h)**2) # Eq. 11
     t_i = t_wave / 0.544 * (1 - 0.3*(inc/h)**2 + 0.24*(inc/h)**3 + 0.14*(e/h)**2*(inc/h)) # Eq. 12
     
-    # Smooth planetary trap, Eq. 3.10 in Picheirri 2018
-    if a >= d_edge*(1+h_edge):
-        tau_a_red = 1
-    elif d_edge*(1-h_edge) <= a <= d_edge*(1+h_edge):
-        tau_a_red = 5.5 * np.cos(((d_edge*(1+h_edge)-a)*2*np.pi) / (4*h_edge*d_edge)) - 4.5
-    elif 0 <= a <= d_edge*(1-h_edge):
-        tau_a_red = -10
-    else: 
-        tau_a_red = 1e-32 # no damping
+    # # Smooth planetary trap, Eq. 3.10 in Picheirri 2018
+    # if a >= d_edge*(1+h_edge):
+    #     tau_a_red = 1
+    # elif d_edge*(1-h_edge) <= a <= d_edge*(1+h_edge):
+    #     tau_a_red = 5.5 * np.cos(((d_edge*(1+h_edge)-a)*2*np.pi) / (4*h_edge*d_edge)) - 4.5
+    # elif 0 <= a <= d_edge*(1-h_edge):
+    #     tau_a_red = -10
+    # else: 
+    #     tau_a_red = 1e-32 # no damping
     
-    t_a /= tau_a_red
+    # t_a /= tau_a_red
+    
     return -t_a, -t_e, -t_i # Negative so damping
   
 def tau_gas(rock, parameters):

@@ -215,24 +215,24 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, n_out, particle_fa
                 removed_names.add(name)
                 print(f"{name} removed; {fate}")
                 continue
-
-            # if 'ptsml' in name:
-            #     tau_a, tau_e, tau_i = tau_gas(rock, parameters)
-            #     rock.params["tau_a"] = tau_a
-            #     rock.params["tau_e"] = tau_e
-            #     rock.params["tau_inc"] = tau_i
-            # elif 'planet' in name or 'embryo' in name:
-            #     tau_a, tau_e, tau_i = tau_t1_mig(rock, parameters)
-            #     rock.params["tau_a"] = tau_a
-            #     rock.params["tau_e"] = tau_e
-            #     rock.params["tau_inc"] = tau_i
-            # else:
-            #     tau_a, tau_e, tau_i = np.nan, np.nan, np.nan
+            
+            # Update damping timescales
+            tau_a, tau_e, tau_i = np.nan, np.nan, np.nan
+            if 'ptsml' in name:
+                tau_a, tau_e, tau_i = tau_gas(rock, parameters)
+                rock.params["tau_a"] = tau_a
+                rock.params["tau_e"] = tau_e
+                rock.params["tau_inc"] = tau_i
+            elif 'planet' in name or 'embryo' in name:
+                tau_a, tau_e, tau_i = tau_t1_mig(rock, parameters)
+                rock.params["tau_a"] = tau_a
+                rock.params["tau_e"] = tau_e
+                rock.params["tau_inc"] = tau_i
             
             # Save data only at some times
             if i % factor == 0:
                 data_i = i // factor
-                # hist["tau_a"][data_i,j], hist["tau_e"][data_i,j], hist["tau_i"][data_i,j] = tau_a, tau_e, tau_i
+                hist["tau_a"][data_i,j], hist["tau_e"][data_i,j], hist["tau_i"][data_i,j] = tau_a, tau_e, tau_i
                 hist["a"][data_i,j], hist["e"][data_i,j], hist["inc"][data_i,j] = orb.a, orb.e, orb.inc
                 hist["P"][data_i,j], hist["l"][data_i,j], hist["pomega"][data_i,j] = orb.P, orb.l, orb.pomega
                 # Print step number
@@ -307,9 +307,7 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, n_out
         n_out (int): Number of outputs to save to disk.
         print_step (bool): Whether to print step number during integration.
         integrator (str, optional, defaults to whfast): Name of the REBOUND integrator to use.
-    """    
-    m_vals, m_star, r_vals, r_star, a_vals = parameters["m_vals"], parameters["m_star"], parameters["r_vals"], parameters["r_star"], parameters["a_vals"]
-    
+    """        
     # Create the simulation
     sim = rebound.Simulation()
     sim.units = ('AU', 'yr', 'Msun')
@@ -319,16 +317,16 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, n_out
         sim.ri_trace.r_crit_hill = 5
     
     # Add the star
-    sim.add(m=m_star, r=r_star, hash='star')
+    sim.add(m=parameters["m_star"], r=parameters["r_star"], hash='star')
     num_rocks = len(rock_names)
     
     # Add rocks 
     hash_to_name = {int(sim.particles[0].hash.value): 'star'} # initialize dict with star hash
     for i in range(num_rocks): 
         sim.add(
-            m=m_vals[i], 
-            r=r_vals[i], 
-            a=a_vals[i], 
+            m=parameters['m_vals'][i], 
+            r=parameters['r_vals'][i], 
+            a=parameters['a_vals'][i], 
             hash=rock_names[i], 
             primary=sim.particles[0], 
             M=np.random.uniform(0, 2*np.pi), 
@@ -398,19 +396,21 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, n_out
     # Reboundx effects
     rebx = reboundx.Extras(sim)
     
-    # mof = rebx.load_force("modify_orbits_forces")
-    # rebx.add_force(mof)
+    mof = rebx.load_force("modify_orbits_forces")
+    rebx.add_force(mof)
     
-    force = rebx.load_force("IDE_typeI")
-    force.params["rx"] = parameters["ide_position"]
-    force.params["w"] = parameters['ide_width']
-    force.params["tIm_surface_density_1"] = parameters['Sigma_1au'] * AU**2 / Msun
-    force.params["tIm_sd0_exponent"] = parameters['alpha']
-    force.params["tIm_scale_height_1"] = parameters['h_1au']
-    force.params["tIm_flaring_index"] = parameters['beta']
-    force.params["zeta"] = 1.0
+    # # NEW IDE model
+    # mig = rebx.load_force("IDE_typeI")
+    # rebx.add_force(mig)
     
-    rebx.add_force(force)
+    # mig.params["rx"] = parameters["ide_position"]
+    # mig.params["w"] = parameters['ide_width']
+    # mig.params["tIm_surface_density_1"] = parameters['Sigma_1au'] * AU**2 / Msun
+    # mig.params["tIm_sd0_exponent"] = parameters['alpha']
+    # mig.params["tIm_scale_height_1"] = parameters['h_1au']
+    # mig.params["tIm_flaring_index"] = parameters['beta']
+    # mig.params["zeta"] = parameters['zeta']
+    # mig.params["min_mass"] = parameters['m_em'] * m_earth
     
     # # REBOUNDx implementation of Type I migration (for debugging)
     # mig = rebx.load_force("type_I_migration")

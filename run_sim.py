@@ -59,13 +59,13 @@ def run_sim(dataset_id, sim_id):
     a_vals = np.concatenate((planets['a_vals'][:num_pl], em_a_vals, ptsml_a_vals)) # Initial a_vals
     
     # Gas disk parameters
-    ide_position = 0.1 
+    ide_position = 0.1
     
     # Full parameter space
     Sigma_1au = np.tile(np.logspace(2.6, 4, num=30), 30)[sim_id] # Each row is the same
     h_1au = np.repeat(np.logspace(-1.7, -1, num=30), 30)[sim_id] # Each column is the same
 
-    Sigma_1au = 1700
+    Sigma_1au = 5000
     h_1au = 0.03
     
     # # Zoomed-in, random
@@ -75,14 +75,17 @@ def run_sim(dataset_id, sim_id):
     
     alpha = 1
     beta = 0
-    ide_width = ide_position * h_1au**beta # scale height at ide position
+    # ide_width = ide_position * h_1au**beta # scale height at ide position
+    ide_width = 0.01
     
     pebble_flux = 0/1000 # number per year
                                               # Converted to Msun/AU^2 from g/cm^2
     tau_a = (2/(2.7+1.1*alpha)) / (5*m_earth) / (Sigma_1au*AU**2 / Msun) * h_1au**2 / (2*np.pi) # for a = 1
     tau_pl = tau_a/2 # planet formation timescale (set to tau_a/2, or tau_a/200 for planets only)
     years = 2.5*tau_a # Set to 2.5*tau_a of the first planet (or tau_a/2 for planets only)
-    n_out = 100
+    n_out = 1000
+    
+    zeta = 1
 
     parameters = {"m_vals": m_vals,
                   "m_star": m_star,
@@ -98,6 +101,7 @@ def run_sim(dataset_id, sim_id):
                   "h_1au": h_1au,
                   "alpha": alpha,
                   "beta": beta,
+                  "zeta": zeta,
                   "pebble_flux": pebble_flux,
                   "m_em": m_em,
                   "r_em": r_em,
