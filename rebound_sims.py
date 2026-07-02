@@ -330,9 +330,9 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, n_out
             a=parameters['a_vals'][i], 
             hash=rock_names[i], 
             primary=sim.particles[0], 
-            M=np.random.uniform(0, 2*np.pi),
-            Omega=np.random.uniform(0, 2*np.pi),
-            omega=np.random.uniform(0, 2*np.pi),
+            M=np.random.uniform(0, 2*np.pi),     # mean anomaly
+            Omega=np.random.uniform(0, 2*np.pi), # longtiude of ascending node
+            omega=np.random.uniform(0, 2*np.pi), # argument of periapsis
             inc=np.random.rayleigh(0.5e-3)
         )
         

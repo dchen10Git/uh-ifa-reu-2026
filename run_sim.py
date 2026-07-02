@@ -36,8 +36,8 @@ def run_sim(dataset_id, sim_id):
     }
 
     num_pl = 3
-    num_em = 10
-    num_ptsml = 100
+    num_em = 0
+    num_ptsml = 0
 
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
@@ -80,8 +80,6 @@ def run_sim(dataset_id, sim_id):
     tau_pl = tau_a # planet formation timescale (set to tau_a, or tau_a/1000 for planets only)
     years = 5*tau_a # Set to 5*tau_a of the first planet (or tau_a for planets only)
     n_out = 100
-    
-    zeta = 1
 
     parameters = {"m_vals": m_vals,
                   "m_star": m_star,
@@ -97,7 +95,6 @@ def run_sim(dataset_id, sim_id):
                   "h_1au": h_1au,
                   "alpha": alpha,
                   "beta": beta,
-                  "zeta": zeta,
                   "pebble_flux": pebble_flux,
                   "m_em": m_em,
                   "r_em": r_em,
@@ -116,7 +113,7 @@ def run_sim(dataset_id, sim_id):
         return # Allow continuation of other sims
     
 if __name__ == "__main__":
-    dataset_id = 7
+    dataset_id = 9
     
     # Job number passed from terminal line (or sbatch)
     job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
