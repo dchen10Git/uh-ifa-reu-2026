@@ -36,8 +36,8 @@ def run_sim(dataset_id, sim_id):
     }
 
     num_pl = 3
-    num_em = 0
-    num_ptsml = 0
+    num_em = 10
+    num_ptsml = 100
 
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
@@ -113,7 +113,7 @@ def run_sim(dataset_id, sim_id):
         return # Allow continuation of other sims
     
 if __name__ == "__main__":
-    dataset_id = 9
+    dataset_id = 7
     
     # Job number passed from terminal line (or sbatch)
     job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
