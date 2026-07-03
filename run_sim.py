@@ -146,4 +146,4 @@ if __name__ == "__main__":
     
     print(f'Time elapsed: {int(time()-tstart)} sec')
     
-# To run, use python3 -W ignore run_sim.py
+# To run, use python3 -W ignore run_sim.py <start_sim_id>
