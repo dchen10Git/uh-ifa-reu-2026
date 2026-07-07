@@ -79,7 +79,7 @@ def run_sim(dataset_id, sim_id):
     tau_a = 1/(2.7+1.1*alpha) / m_vals[0] / (Sigma_1au*AU**2 / Msun) * h_1au**2 / (2*np.pi) # for a = 1
     tau_pl = tau_a # planet formation timescale (set to tau_a, or tau_a/1000 for planets only)
     years = 5*tau_a # Set to 5*tau_a of the first planet (or tau_a for planets only)
-    n_out = 1000
+    n_out = 100
 
     parameters = {"m_vals": m_vals,
                   "m_star": m_star,
