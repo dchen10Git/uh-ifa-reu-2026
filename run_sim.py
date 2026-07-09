@@ -35,14 +35,32 @@ def run_sim(dataset_id, sim_id):
         "r_vals": [10, 10, 10] # [r_earth]; twice the current values
     }
 
-    num_pl = 3
-    num_em = 10
-    num_ptsml = 100
+    num_pl = 1
+    num_em = 1
+    num_ptsml = 0
 
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
+    # Set up parameter grid
+    n_sigma, n_h, n_m = 10, 10, 10  # product equals total sim count
+
+    sigma_vals = np.logspace(np.log10(100), np.log10(5000), n_sigma)
+    h_vals     = np.logspace(np.log10(0.01), np.log10(0.05), n_h)
+    m_em_vals  = np.logspace(np.log10(0.01), np.log10(1), n_m)
+
+    Sigma_grid, H_grid, M_grid = np.meshgrid(sigma_vals, h_vals, m_em_vals, indexing='ij')
+
+    Sigma_1au = Sigma_grid.ravel()[sim_id]
+    h_1au     = H_grid.ravel()[sim_id]
+    m_em      = M_grid.ravel()[sim_id]
+    
+    # # Zoomed-in, random
+    # rng = np.random.default_rng(sim_id)
+    # Sigma_1au = loguniform.rvs(10**(454/145), 10**(517/145), random_state=rng)
+    # h_1au = loguniform.rvs(10**(-437/290), 10**(-187/145), random_state=rng) 
+    
     # Setting up em/ptsml disk
-    m_em = 0.03 # [m_earth]
+    # m_em = 0.4 # [m_earth]
     r_em = 0.3 # [r_earth]
     m_ptsml = 0.0033 # [m_earth]
     r_ptsml = (100*1e5/AU)/r_earth # 100 km in [r_earth]
@@ -59,27 +77,17 @@ def run_sim(dataset_id, sim_id):
     a_vals = np.concatenate((planets['a_vals'][:num_pl], em_a_vals, ptsml_a_vals)) # Initial a_vals
     
     # Gas disk parameters
+    alpha = 1 # Surface density profile index (Sigma ~ r^-alpha)
+    beta = 0  # Flaring index (h/r ~ r^beta)
     ide_position = 0.1
-    
-    # Full parameter space
-    Sigma_1au = np.tile(np.logspace(2.6, 4, num=30), 30)[sim_id] # Each row is the same
-    h_1au = np.repeat(np.logspace(-1.7, -1, num=30), 30)[sim_id] # Each column is the same
-    
-    # # Zoomed-in, random
-    # rng = np.random.default_rng(sim_id)
-    # Sigma_1au = loguniform.rvs(10**(454/145), 10**(517/145), random_state=rng)
-    # h_1au = loguniform.rvs(10**(-437/290), 10**(-187/145), random_state=rng)
-    
-    alpha = 1
-    beta = 0
     ide_width = ide_position * h_1au**beta # scale height at ide position
     
     pebble_flux = 0/1000 # number per year
                                               # Converted to Msun/AU^2 from g/cm^2
     tau_a = 1/(2.7+1.1*alpha) / m_vals[0] / (Sigma_1au*AU**2 / Msun) * h_1au**2 / (2*np.pi) # for a = 1
     tau_pl = tau_a # planet formation timescale (set to tau_a, or tau_a/1000 for planets only)
-    years = 5*tau_a # Set to 5*tau_a of the first planet (or tau_a for planets only)
-    n_out = 100
+    years = 2*tau_a # Set to 5*tau_a of the first planet (or tau_a for planets only)
+    n_out = 500
 
     parameters = {"m_vals": m_vals,
                   "m_star": m_star,
@@ -106,19 +114,19 @@ def run_sim(dataset_id, sim_id):
     
     # Sim integration!
     try:
-        reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, years, n_out, print_step=True, integrator="trace")
+        reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, years, n_out, print_step=False, integrator="trace")
     except Exception as e:
         print(f"Sim {sim_id} | Unexpected error: {e}")
         raise # Use this for debug traceback
         return # Allow continuation of other sims
     
 if __name__ == "__main__":
-    dataset_id = 7
+    dataset_id = 13
     
     # Job number passed from terminal line (or sbatch)
     job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
 
-    sims_per_job = 1
+    sims_per_job = 1000
     start_sim = job_id * sims_per_job
     end_sim = start_sim + sims_per_job
     

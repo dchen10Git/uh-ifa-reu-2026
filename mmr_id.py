@@ -10,7 +10,7 @@ Formulas used from section 2.3 in Keller et al. (2026).
 Alternatively, we can use zeta as given in Eq. 11 in Fabrycky et al. (2014) to determine the period ratio.
 '''
 
-def find_best_twoBR_pq(m_star, b, c, p_max=16, crit="Delta"):
+def find_best_twoBR_pq(m_star, b, c, p_max=16, crit="Delta", snapshot=-1):
     '''Finds the best values for p and q at the end of simulation for 
        two planets given some MMR criterion'''
     if crit == 'Delta':
@@ -21,8 +21,8 @@ def find_best_twoBR_pq(m_star, b, c, p_max=16, crit="Delta"):
     best_p, best_q = 100, 100
     
     # Use Kepler's law to find period values
-    P_b = (b['a'].iloc[-1]**3 / m_star)**(1/2)
-    P_c = (c['a'].iloc[-1]**3 / m_star)**(1/2)
+    P_b = (b['a'].iloc[snapshot]**3 / m_star)**(1/2)
+    P_c = (c['a'].iloc[snapshot]**3 / m_star)**(1/2)
     
     for p in range(1, p_max+1):
         for q in range(1, p+1): # p+1 for 1:1 case
@@ -101,7 +101,7 @@ def plot_libration(m_star, b, c, d=None, t_units='kyr', N=100, forced_pq=None, p
         amp = libration_amp(twoBR, N)
         print(f"Libration amplitude: {amp:.1f} deg")
 
-        plt.figure(figsize=(5,4))
+        plt.figure(figsize=(5,3))
         if t_units == 'kyr':
             plt.scatter(times/1000, twoBR, s=3) 
         plt.axhline(180, color='gray', ls='--', alpha=0.7)

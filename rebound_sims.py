@@ -341,7 +341,7 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, n_out
         hash_to_name[h] = rock_names[i]
         
     sim.N_active = 1 + parameters['num_pl'] + parameters['num_em'] # Star + planets + embryos
-    sim.testparticle_type = 1 # Ptsmls will not interact with each other
+    sim.testparticle_type = 1 # 1: Ptsmls will not interact with each other
         
     # === Collision Handling ===
     sim.collision = "line" # "direct" might miss too many collisions
@@ -432,7 +432,7 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, n_out
         years = np.clip(years, 1e3, 10e6)
         print(f"Sim {sim_id:<2d} | Years clipped to {years:.3e}")
             
-    print(f"Starting Sim {sim_id:<2d} | {years/1000:.1f} kyr | Sigma_1au: {parameters['Sigma_1au']:.0f} | h_1au: {parameters['h_1au']:.3f}", flush=True)
+    print(f"Starting Sim {sim_id:<2d} | {years/1000:.1f} kyr | Sigma_1au: {parameters['Sigma_1au']:.0f} | h_1au: {parameters['h_1au']:.3f} | m_em: {parameters['m_em']:.3f}", flush=True)
     
     data = integrate_sim(sim, sim_id, rock_names, parameters, years, n_out, particle_fate, hash_to_name, start_time=0, print_step=print_step)
     
