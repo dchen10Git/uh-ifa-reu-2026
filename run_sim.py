@@ -31,11 +31,11 @@ def run_sim(dataset_id, sim_id):
     planets = {
         "name": ['planet b', 'planet c', 'planet d'],
         "m_vals": [5, 5, 5], # [m_earth]
-        "a_vals": [1, 1, 1], # [AU]
+        "a_vals": [0.1, 1, 1], # [AU]
         "r_vals": [10, 10, 10] # [r_earth]; twice the current values
     }
 
-    num_pl = 1
+    num_pl = 2
     num_em = 1
     num_ptsml = 0
 
@@ -85,7 +85,7 @@ def run_sim(dataset_id, sim_id):
     pebble_flux = 0/1000 # number per year
                                               # Converted to Msun/AU^2 from g/cm^2
     tau_a = 1/(2.7+1.1*alpha) / m_vals[0] / (Sigma_1au*AU**2 / Msun) * h_1au**2 / (2*np.pi) # for a = 1
-    tau_pl = tau_a # planet formation timescale (set to tau_a, or tau_a/1000 for planets only)
+    tau_pl = 0 # planet formation timescale (set to tau_a, or 0 for planets only)
     years = 2*tau_a # Set to 5*tau_a of the first planet (or tau_a for planets only)
     n_out = 500
 
@@ -126,7 +126,7 @@ if __name__ == "__main__":
     # Job number passed from terminal line (or sbatch)
     job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
 
-    sims_per_job = 1000
+    sims_per_job = 10
     start_sim = job_id * sims_per_job
     end_sim = start_sim + sims_per_job
     
