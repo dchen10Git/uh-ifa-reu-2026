@@ -2,14 +2,22 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+import matplotlib.patches as patches
 import matplotlib.patheffects as path_effects
+from matplotlib.gridspec import GridSpec
 from fractions import Fraction
+
+# Plot prettier
+plt.rc("savefig", dpi=600)
+plt.rcParams['mathtext.fontset'] = 'cm'
+plt.rcParams['font.family'] = 'serif'
+plt.rcParams['font.serif'] = ['Times New Roman'] + plt.rcParams['font.serif']
 
 RATIOS = [2/1, 5/3, 3/2, 4/3, 5/4, 6/5, 7/6, 1, 8/7, 11/9, 11/8, 9/7,
           7/5, 8/5, 7/4, 9/8, 10/9, 11/10, 12/11, 13/12, 14/13, 13/11, 13/10]
 
-# Axis handling: one place that knows how to bin/scale/label each column type,
-# instead of three separate if/elif blocks scattered through the plot code.
+
+# Axis handling: one place per column type instead of if/elif blocks scattered through the plot code
 
 def geometric_edges(vals):
     """Bin edges at the geometric mean between consecutive log-spaced values."""
@@ -20,6 +28,7 @@ def geometric_edges(vals):
     edges[-1] = vals[-1] ** 2 / edges[-2]
     return edges
 
+
 def linear_index_edges(n):
     """Bin edges for a discretized/binned integer-index axis (e.g. log_tau_Omega_bin)."""
     edges = np.empty(n + 1)
@@ -27,6 +36,7 @@ def linear_index_edges(n):
     edges[0] = -0.5
     edges[-1] = n - 0.5
     return edges
+
 
 def bin_continuous_axis(df, col, nbins):
     """Discretize a continuous column into nbins equal-width bins, returning the
@@ -56,7 +66,7 @@ def _axis_config(col):
     return AXIS_CONFIGS[col]
 
 
-# Grid extraction (for value grid, bool grid, Delta grid, etc.)
+# Grid extraction (was duplicated 3x for grid / libration_grid / Delta_grid)
 
 def get_grid(df, x_col, y_col, value_col, x_vals, y_vals, aggfunc="mean"):
     return (
@@ -65,11 +75,13 @@ def get_grid(df, x_col, y_col, value_col, x_vals, y_vals, aggfunc="mean"):
           .values
     )
 
+
 def _mode_agg(x):
     m = x.mode()
     return m.iloc[0] if len(m) else np.nan
 
-# Cell text formatting
+
+# Cell text formatting (was a long if/elif chain scattered inline; isolated here as the one place it lives)
 
 def format_cell_value(value, value_col, exp=False, bool_mode=None):
     if bool_mode == "symbol":
@@ -97,31 +109,14 @@ def is_boolean_col(series):
     return len(non_null) > 0 and non_null.isin([True, False, 0, 1]).all()
 
 
-# Single-panel draw: takes an existing ax, returns the QuadMesh so callers
-# (standalone plot OR facet grid) can attach one shared colorbar.
+# Single-panel draw: takes an existing ax, returns the mesh so callers (standalone plot or facet grid) can share one colorbar
 
-def draw_param_panel(
-    ax,
-    outcomes,
-    value_col,
-    x_col="Sigma_1au",
-    y_col="h_1au",
-    nbins=None,
-    cmap="viridis",
-    vmin=None,
-    vmax=None,
-    exp=False,
-    log_cmap=False,
-    show_text=True,
-    show_bool=False,
-    show_Delta=False,
-    black_threshold=0.5,
-    h_cut=None,
-    x_tick_step=None,
-    y_tick_step=None,
-    tick_rotation=0,
-    bool_mode="auto",
-):
+def draw_param_panel(ax, outcomes, value_col, x_col="Sigma_1au", y_col="h_1au",
+                      nbins=None, cmap="viridis", vmin=None, vmax=None, exp=False,
+                      log_cmap=False, show_text=True, show_libration=False,
+                      show_Delta=False, black_threshold=0.5, h_cut=None,
+                      x_tick_step=None, y_tick_step=None, tick_rotation=0,
+                      bool_mode="auto"):
     """
     bool_mode controls how a boolean-valued value_col (e.g. inner_librates) is
     rendered when it is the *primary* value_col, not the libration overlay:
@@ -137,40 +132,33 @@ def draw_param_panel(
             bool_mode = "symbol" if n_per_cell == 1 else "fraction"
         else:
             bool_mode = None
- 
+
     if nbins is not None:
         outcomes, x_col, x_labels = bin_continuous_axis(outcomes, x_col, nbins)
         x_is_binned = True
     else:
         x_is_binned = False
- 
+
     x_vals = np.sort(outcomes[x_col].dropna().unique())
     y_vals = np.sort(outcomes[y_col].unique())
     if h_cut:
         y_vals = y_vals[y_vals <= h_cut]
- 
+
     if bool_mode == "fraction":
         values = get_grid(outcomes, x_col, y_col, value_col, x_vals, y_vals, aggfunc="mean")
     else:
         values = get_grid(outcomes, x_col, y_col, value_col, x_vals, y_vals, aggfunc=_mode_agg)
- 
-    bool_grid = None
-    if show_bool:
-        bool_grid = get_grid(
-            outcomes,
-            x_col,
-            y_col,
-            value_col,
-            x_vals,
-            y_vals,
-            aggfunc=_mode_agg,
-        )
- 
+
+    libration_grid = None
+    if show_libration and value_col in ("inner_P_ratio", "outer_P_ratio"):
+        lib_col = "inner_librates" if value_col == "inner_P_ratio" else "outer_librates"
+        libration_grid = get_grid(outcomes, x_col, y_col, lib_col, x_vals, y_vals, aggfunc="mean")
+
     delta_grid = None
     if show_Delta and value_col in ("inner_P_ratio", "outer_P_ratio"):
         delta_col = "inner_P_Delta (%)" if value_col == "inner_P_ratio" else "outer_P_Delta (%)"
         delta_grid = get_grid(outcomes, x_col, y_col, delta_col, x_vals, y_vals, aggfunc="mean")
- 
+
     # Edges
     if x_is_binned:
         x_edges = linear_index_edges(len(x_vals))
@@ -179,7 +167,7 @@ def draw_param_panel(
         x_edges = _axis_config(x_col)["edges"](x_vals)
         x_plot_vals = x_vals
     y_edges = _axis_config(y_col)["edges"](y_vals)
- 
+
     # Colormap / norm
     if "survived" in value_col:
         cmap_obj = mcolors.ListedColormap(["#482173", "#2E6F8E", "#29AF7F"])
@@ -195,13 +183,13 @@ def draw_param_panel(
         cmap_obj = plt.get_cmap(cmap).copy()
         norm = mcolors.LogNorm(vmin=vmin, vmax=vmax) if log_cmap else None
     cmap_obj.set_bad("lightgray")
- 
+
     mesh = ax.pcolormesh(
         x_edges, y_edges, values.T, cmap=cmap_obj, norm=norm, shading="flat",
         vmin=None if norm is not None else vmin,
         vmax=None if norm is not None else vmax,
     )
- 
+
     # Axis labels / ticks
     if x_is_binned:
         ax.set_xlabel(r"$\log_{10}(\tau_a\Omega)$")
@@ -218,7 +206,7 @@ def draw_param_panel(
         ax.set_xticks(x_vals[1::step])
         ax.set_xticklabels([cfg["tick_fmt"](v) for v in x_vals[1::step]],
                             rotation=tick_rotation, ha="right" if tick_rotation else "center")
- 
+
     ycfg = _axis_config(y_col)
     ax.set_ylabel(ycfg["label"])
     ax.set_yscale(ycfg["scale"])
@@ -226,9 +214,9 @@ def draw_param_panel(
     ax.set_yticks(y_vals[1::step])
     ax.set_yticklabels([ycfg["tick_fmt"](v) for v in y_vals[1::step]])
     ax.minorticks_off()
- 
+
     # Cell annotations
-    if show_text or bool_grid is not None or delta_grid is not None:
+    if show_text or libration_grid is not None or delta_grid is not None:
         for i, x in enumerate(x_plot_vals):
             for j, y in enumerate(y_vals):
                 value = values[i, j]
@@ -241,57 +229,37 @@ def draw_param_panel(
                 else:
                     color = "k" if value > black_threshold else "white"
                     stroke_color = "white" if value > black_threshold else "black"
- 
-                if show_text:
-                    txt = ax.annotate(
-                        format_cell_value(value, value_col, exp, bool_mode),
-                        xy=(x, y),
-                        xytext=(0, -5),
-                        textcoords="offset points",
-                        ha="center",
-                        va="center",
-                        fontsize=6,
-                        weight="bold",
-                        color=color,
-                        zorder=5,
-                    )
-                    txt.set_path_effects([path_effects.withStroke(linewidth=0.4, foreground=stroke_color)])
- 
-                if bool_grid is not None and not np.isnan(bool_grid[i, j]):
-                    val = bool(bool_grid[i, j])
 
-                    ax.annotate(
-                        "T" if val else "F",
-                        xy=(x, y),
-                        xytext=(0, 7),
-                        textcoords="offset points",
-                        ha="center",
-                        va="bottom",
-                        fontsize=5,
-                        fontweight="bold",
-                        color="green" if val else "red",
-                    )
- 
+                if show_text:
+                    txt = ax.text(x, y, format_cell_value(value, value_col, exp, bool_mode),
+                                  ha="center", va="center", fontsize=3,
+                                  weight="bold", color=color, zorder=5)
+                    txt.set_path_effects([path_effects.withStroke(linewidth=0.4, foreground=stroke_color)])
+
+                if libration_grid is not None and libration_grid[i, j]:
+                    ax.annotate("L", xy=(x, y), xytext=(0, 1), textcoords="offset points",
+                                ha="center", va="top", fontsize=5, color="C3", fontweight="bold")
+
                 if delta_grid is not None:
-                    ax.annotate(rf"$\Delta = {delta_grid[i, j]}$%", xy=(x, y), xytext=(0, -10),
+                    ax.annotate(rf"$\Delta = {delta_grid[i, j]}$%", xy=(x, y), xytext=(0, -5),
                                 textcoords="offset points", ha="center", va="top",
-                                fontsize=3.8, color=color, fontweight="bold")
- 
+                                fontsize=4, color=color, fontweight="bold")
+
     ax.tick_params(axis="both", direction="inout")
     return mesh, bool_mode
- 
-# Standalone single-panel figure (drop-in replacement for the original
-# plot_param_grid_map, same public signature)
- 
+
+
+# Standalone single-panel figure (drop-in replacement for the original plot_param_grid_map, same public signature)
+
 def plot_param_grid_map(outcomes, value_col, label, x_col="Sigma_1au", y_col="h_1au",
                          nbins=None, cmap="viridis", vmin=None, vmax=None, exp=False,
-                         log_cmap=False, show_text=True, show_bool=False,
+                         log_cmap=False, show_text=True, show_libration=False,
                          show_Delta=False, black_threshold=0.5, h_cut=None,
                          bool_mode="auto"):
-    fig, ax = plt.subplots(figsize=(9,9))
+    fig, ax = plt.subplots(figsize=(5, 4))
     mesh, resolved_bool_mode = draw_param_panel(
         ax, outcomes, value_col, x_col, y_col, nbins, cmap, vmin, vmax,
-        exp, log_cmap, show_text, show_bool, show_Delta,
+        exp, log_cmap, show_text, show_libration, show_Delta,
         black_threshold, h_cut, bool_mode=bool_mode)
     cbar = fig.colorbar(mesh, ax=ax)
     cbar.set_label(label)
@@ -306,40 +274,39 @@ def plot_param_grid_map(outcomes, value_col, label, x_col="Sigma_1au", y_col="h_
     cbar.ax.tick_params(direction="inout")
     plt.tight_layout()
     plt.show()
- 
- 
-# 3D extension: small multiples over a third parameter (facet_col), one
-# Sigma_1au x h_1au panel per value of facet_col (e.g. m_em), sharing a
-# single colorbar so panels are visually comparable.
- 
+
+
+# 3D extension: small multiples over facet_col (e.g. m_em), one Sigma_1au x h_1au panel per value, sharing one colorbar
+
 def plot_param_grid_facets(outcomes, value_col, label, facet_col, x_col="Sigma_1au",
                             y_col="h_1au", facet_vals=None, ncols=3, panel_size=4.0,
                             cmap="viridis", vmin=None, vmax=None, log_cmap=False,
-                            exp=False, show_text=True, show_bool=False,
+                            exp=False, show_text=True, show_libration=False,
                             show_Delta=False, black_threshold=0.5, h_cut=None,
                             facet_fmt=lambda v: f"{v:.2g}",
                             wspace=0.45, hspace=0.55,
                             x_tick_step=None, y_tick_step=None, tick_rotation=45):
- 
+
     if facet_vals is None:
         facet_vals = np.sort(outcomes[facet_col].unique())
- 
+
     # Panels are smaller than a standalone plot, so default to fewer ticks
     # than the single-panel config unless the caller overrides explicitly.
     if x_tick_step is None:
         x_tick_step = _axis_config(x_col)["tick_step"] * 2
     if y_tick_step is None:
         y_tick_step = _axis_config(y_col)["tick_step"] * 2
- 
+
     # Shared color scale across all panels unless caller overrides
     if vmin is None or vmax is None and "survived" not in value_col:
         finite_vals = outcomes[value_col].replace([np.inf, -np.inf], np.nan).dropna()
         vmin = finite_vals.min() if vmin is None else vmin
         vmax = finite_vals.max() if vmax is None else vmax
- 
+
     nrows = int(np.ceil(len(facet_vals) / ncols))
-    fig, axes = plt.subplots(nrows, ncols, figsize=(15,7))
- 
+    fig, axes = plt.subplots(nrows, ncols, figsize=(panel_size * ncols, panel_size * nrows),
+                              squeeze=False)
+
     mesh = None
     resolved_bool_mode = None
     for idx, fv in enumerate(facet_vals):
@@ -350,23 +317,17 @@ def plot_param_grid_facets(outcomes, value_col, label, facet_col, x_col="Sigma_1
             continue
         mesh, resolved_bool_mode = draw_param_panel(
             ax, subset, value_col, x_col, y_col, None, cmap, vmin, vmax,
-            exp, log_cmap, show_text, show_bool, show_Delta,
+            exp, log_cmap, show_text, show_libration, show_Delta,
             black_threshold, h_cut, x_tick_step=x_tick_step, y_tick_step=y_tick_step,
             tick_rotation=tick_rotation)
         ax.set_title(f"{facet_col} = {facet_fmt(fv)}", fontsize=9, pad=8)
- 
+
     # Turn off unused axes
     for idx in range(len(facet_vals), nrows * ncols):
         axes[idx // ncols, idx % ncols].axis("off")
- 
+
     if mesh is not None:
-        cbar = fig.colorbar(
-            mesh,
-            ax=axes.ravel().tolist(),
-            location="right",
-            fraction=0.03,
-            pad=0.02,
-        )
+        cbar = fig.colorbar(mesh, ax=axes, shrink=0.8)
         cbar.set_label(label)
         if resolved_bool_mode == "symbol":
             cbar.set_ticks([0, 1], labels=["False", "True"])
@@ -376,46 +337,141 @@ def plot_param_grid_facets(outcomes, value_col, label, facet_col, x_col="Sigma_1
             cbar.ax.minorticks_off()
         elif "survived" in value_col:
             cbar.set_ticks([1, 2, 3])
- 
+
     # Applied after the colorbar so its layout adjustment doesn't clobber this
-    fig.subplots_adjust(
-        left=0.08,
-        right=0.90,      # reserve space for colorbar
-        bottom=0.10,
-        top=0.92,
-        wspace=0.30,
-        hspace=0.35,
-    )
+    fig.subplots_adjust(wspace=wspace, hspace=hspace)
+    plt.show()
+
+
+FACET_LABELS = {
+    "m_em": r"m_{\rm em}",
+}
+
+
+def _facet_title(facet_col, fv):
+    if facet_col in FACET_LABELS:
+        return rf"${FACET_LABELS[facet_col]} = {fv:.2g}$"
+    return f"{facet_col} = {fv:.2g}"
+
+
+def plot_param_grid_multi(outcomes, value_col, label, facet_col="m_em",
+                           x_col="Sigma_1au", y_col="h_1au", ncols=3,
+                           panel_size=4.0, cmap="viridis", vmin=None, vmax=None,
+                           wspace=0.45, hspace=0.55, cbar_width_ratio=0.12,
+                           x_tick_step=None, y_tick_step=None, show_text=True):
+    """
+    One panel per facet_col value (e.g. m_em), each a Sigma_1au x h_1au grid
+    of value_col. If value_col is float-valued, cells get a continuous
+    colormap and a shared colorbar. If value_col is boolean, cells are flat
+    green (True) / red (False) boxes with a legend instead of a colorbar.
+    The colorbar/legend sits in its own GridSpec column so it never compresses
+    or clips into the panel grid.
+    """
+    is_bool = is_boolean_col(outcomes[value_col])
+
+    facet_vals = np.sort(outcomes[facet_col].unique())
+    xcfg, ycfg = _axis_config(x_col), _axis_config(y_col)
+    x_tick_step = x_tick_step or xcfg["tick_step"]
+    y_tick_step = y_tick_step or ycfg["tick_step"]
+
+    if not is_bool and (vmin is None or vmax is None):
+        finite = outcomes[value_col].replace([np.inf, -np.inf], np.nan).dropna()
+        vmin = finite.min() if vmin is None else vmin
+        vmax = finite.max() if vmax is None else vmax
+
+    nrows = int(np.ceil(len(facet_vals) / ncols))
+    fig = plt.figure(figsize=(5+2*ncols,1.5+2*nrows))
+    gs = GridSpec(nrows, ncols + 1, figure=fig,
+                  width_ratios=[1] * ncols + [cbar_width_ratio],
+                  wspace=wspace, hspace=hspace)
+    axes = np.empty((nrows, ncols), dtype=object)
+    for r in range(nrows):
+        for c in range(ncols):
+            axes[r, c] = fig.add_subplot(gs[r, c])
+    cax = fig.add_subplot(gs[:, -1])
+
+    mesh = None
+    for idx, fv in enumerate(facet_vals):
+        ax = axes[idx // ncols, idx % ncols]
+        subset = outcomes[outcomes[facet_col] == fv]
+        if subset.empty:
+            ax.axis("off")
+            continue
+
+        x_vals = np.sort(subset[x_col].unique())
+        y_vals = np.sort(subset[y_col].unique())
+        values = get_grid(subset, x_col, y_col, value_col, x_vals, y_vals, aggfunc=_mode_agg)
+        
+        if is_bool:
+            values = np.where(values == True, 1.0, np.where(values == False, 0.0, np.nan))
+            
+        x_edges, y_edges = xcfg["edges"](x_vals), ycfg["edges"](y_vals)
+        if is_bool:
+            cmap_obj = mcolors.ListedColormap(["#d62728", "#2ca02c"])  # False=red, True=green
+            norm = mcolors.BoundaryNorm([-0.5, 0.5, 1.5], cmap_obj.N)
+        else:
+            cmap_obj = plt.get_cmap(cmap)
+            norm = None
+
+        mesh = ax.pcolormesh(x_edges, y_edges, values.T, cmap=cmap_obj, norm=norm,
+                              vmin=None if norm else vmin, vmax=None if norm else vmax,
+                              shading="flat")
+
+        if show_text and not is_bool:
+            for i, x in enumerate(x_vals):
+                for j, y in enumerate(y_vals):
+                    v = values[i, j]
+                    if np.isnan(v):
+                        continue
+                    txt = ax.text(
+                        x,
+                        y,
+                        format_cell_value(v, value_col),
+                        ha="center",
+                        va="center",
+                        fontsize=5,
+                        color="black",
+                        fontweight="bold",
+                        zorder=5,
+                    )
+                    txt.set_path_effects([path_effects.withStroke(linewidth=0.5, foreground="white")])
+
+        ax.set_xscale(xcfg["scale"])
+        ax.set_yscale(ycfg["scale"])
+        ax.set_xticks(x_vals[0::x_tick_step])
+        ax.set_xticklabels([xcfg["tick_fmt"](v) for v in x_vals[0::x_tick_step]])
+        ax.set_yticks(y_vals[0::y_tick_step])
+        ax.set_yticklabels([ycfg["tick_fmt"](v) for v in y_vals[0::y_tick_step]])
+        ax.set_xlabel(xcfg["label"])
+        ax.set_ylabel(ycfg["label"])
+        ax.set_title(_facet_title(facet_col, fv), fontsize=9, pad=8)
+        ax.minorticks_off()
+        ax.tick_params(axis="both", direction="inout", labelsize=8)
+
+    for idx in range(len(facet_vals), nrows * ncols):
+        axes[idx // ncols, idx % ncols].axis("off")
+
+    cax.axis("off")
+    if is_bool:
+        legend_handles = [
+            patches.Patch(facecolor="#2ca02c", label="True"),
+            patches.Patch(facecolor="#d62728", label="False"),
+        ]
+        cax.legend(handles=legend_handles, loc="center", frameon=False)
+    elif mesh is not None:
+        cax.axis("on")
+        cax.set_frame_on(False)
+        cax.set_xticks([])
+        cax.set_yticks([])
+        cbar = fig.colorbar(mesh, cax=cax, fraction=1.0)
+        cbar.set_label(label)
+
+    plt.suptitle(f"{label}")
     plt.show()
     
-# Use
+    
 dataset_id = 13
 snapshot = -1
 outcomes = pd.read_hdf(f"dfs/outcomes{dataset_id}_{snapshot}.h5", key="df") # Load data
 
-
-plot_param_grid_facets(
-    outcomes,
-    value_col="sim_id",
-    label="sim_id",
-    facet_col="m_em",
-    x_col="Sigma_1au",
-    y_col="h_1au",
-    ncols=5,
-    show_bool=False,
-    panel_size=3,
-    wspace=0.1,
-    hspace=0.1,
-    tick_rotation=45,
-)
-
-# plot_param_grid_facets(
-#     outcomes,
-#     value_col="inner_librates",
-#     label="Librating",
-#     facet_col="m_em",
-#     x_col="Sigma_1au",
-#     y_col="h_1au",
-#     ncols=5,
-#     # show_libration=True,
-# )
+plot_param_grid_multi(outcomes, "embryo_inside", "Embryo between two planets?", ncols=5, x_tick_step=2, y_tick_step=2)

@@ -31,12 +31,12 @@ def run_sim(dataset_id, sim_id):
     planets = {
         "name": ['planet b', 'planet c', 'planet d'],
         "m_vals": [5, 5, 5], # [m_earth]
-        "a_vals": [0.1, 1, 1], # [AU]
+        "a_vals": [1, 1, 1], # [AU]
         "r_vals": [10, 10, 10] # [r_earth]; younger planets are puffier
     }
 
-    num_pl = 2
-    num_em = 6
+    num_pl = 3
+    num_em = 12
     num_ptsml = 0
 
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
@@ -44,9 +44,9 @@ def run_sim(dataset_id, sim_id):
     # Set up parameter grid
     n_sigma, n_h, n_m = 10, 10, 10  # product equals total sim count
 
-    sigma_vals = np.logspace(np.log10(100), np.log10(5000), n_sigma)
+    sigma_vals = np.logspace(np.log10(170), np.log10(1700), n_sigma)
     h_vals     = np.logspace(np.log10(0.01), np.log10(0.05), n_h)
-    m_em_vals  = np.logspace(np.log10(0.01), np.log10(0.5), n_m)
+    m_em_vals  = np.logspace(np.log10(0.04), np.log10(0.4), n_m)
 
     Sigma_grid, H_grid, M_grid = np.meshgrid(sigma_vals, h_vals, m_em_vals, indexing='ij')
 
@@ -85,8 +85,8 @@ def run_sim(dataset_id, sim_id):
     pebble_flux = 0/1000 # number per year
                                               # Converted to Msun/AU^2 from g/cm^2
     tau_a = 1/(2.7+1.1*alpha) / m_vals[0] / (Sigma_1au*AU**2 / Msun) * h_1au**2 / (2*np.pi) # for a = 1
-    tau_pl = 0 # planet formation timescale (set to tau_a, or 0 for planets only)
-    years = 2*tau_a # Set to 5*tau_a of the first planet (or tau_a for planets only)
+    tau_pl = tau_a # planet formation timescale (set to tau_a, or 0 for planets only)
+    years = 6*tau_a # Set to 5*tau_a of the first planet (or tau_a for planets only)
     n_out = 500
 
     parameters = {"m_vals": m_vals,
@@ -121,7 +121,7 @@ def run_sim(dataset_id, sim_id):
         return # Allow continuation of other sims
     
 if __name__ == "__main__":
-    dataset_id = 13
+    dataset_id = 14
     
     # Job number passed from terminal line (or sbatch)
     job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0

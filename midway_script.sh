@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --job-name=ptsmls13
-#SBATCH --output=sbatch13_%a.out
+#SBATCH --job-name=ptsmls14
+#SBATCH --output=sbatch14_%a.out
 #SBATCH --time=2:00:00
 #SBATCH --cpus-per-task=10
 #SBATCH --account=pi-fabrycky
