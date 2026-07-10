@@ -44,7 +44,7 @@ def run_sim(dataset_id, sim_id):
     # Set up parameter grid
     n_sigma, n_h, n_m = 10, 10, 10  # product equals total sim count
 
-    sigma_vals = np.logspace(np.log10(170), np.log10(1700), n_sigma)
+    sigma_vals = np.logspace(np.log10(100), np.log10(2000), n_sigma)
     h_vals     = np.logspace(np.log10(0.01), np.log10(0.05), n_h)
     m_em_vals  = np.logspace(np.log10(0.04), np.log10(0.4), n_m)
 
