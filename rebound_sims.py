@@ -340,7 +340,8 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, n_out
         h = int(sim.particles[-1].hash.value)
         hash_to_name[h] = rock_names[i]
         
-    sim.N_active = 1 + parameters['num_pl'] + parameters['num_em'] # Star + planets + embryos
+    # sim.N_active = 1 + parameters['num_pl'] + parameters['num_em'] # Star + planets + embryos
+    sim.N_active = 1 + parameters['num_pl'] # Star + planets (no embryos)
     sim.testparticle_type = 1 # 1: Ptsmls will not interact with each other
         
     # === Collision Handling ===

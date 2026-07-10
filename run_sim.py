@@ -32,11 +32,11 @@ def run_sim(dataset_id, sim_id):
         "name": ['planet b', 'planet c', 'planet d'],
         "m_vals": [5, 5, 5], # [m_earth]
         "a_vals": [0.1, 1, 1], # [AU]
-        "r_vals": [10, 10, 10] # [r_earth]; twice the current values
+        "r_vals": [10, 10, 10] # [r_earth]; younger planets are puffier
     }
 
     num_pl = 2
-    num_em = 1
+    num_em = 6
     num_ptsml = 0
 
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
@@ -46,7 +46,7 @@ def run_sim(dataset_id, sim_id):
 
     sigma_vals = np.logspace(np.log10(100), np.log10(5000), n_sigma)
     h_vals     = np.logspace(np.log10(0.01), np.log10(0.05), n_h)
-    m_em_vals  = np.logspace(np.log10(0.01), np.log10(1), n_m)
+    m_em_vals  = np.logspace(np.log10(0.01), np.log10(0.5), n_m)
 
     Sigma_grid, H_grid, M_grid = np.meshgrid(sigma_vals, h_vals, m_em_vals, indexing='ij')
 
@@ -54,17 +54,17 @@ def run_sim(dataset_id, sim_id):
     h_1au     = H_grid.ravel()[sim_id]
     m_em      = M_grid.ravel()[sim_id]
     
-    # # Zoomed-in, random
+    # # Zoomed-in, randomly sampled from parameter space
     # rng = np.random.default_rng(sim_id)
     # Sigma_1au = loguniform.rvs(10**(454/145), 10**(517/145), random_state=rng)
     # h_1au = loguniform.rvs(10**(-437/290), 10**(-187/145), random_state=rng) 
     
     # Setting up em/ptsml disk
     # m_em = 0.4 # [m_earth]
-    r_em = 0.3 # [r_earth]
+    r_em = (m_em)**(1/3) # [r_earth]; assuming density same as Earth
     m_ptsml = 0.0033 # [m_earth]
     r_ptsml = (100*1e5/AU)/r_earth # 100 km in [r_earth]
-    small_body_a_vals = np.linspace(0.4, 0.9, num_em+num_ptsml) # equally spaced locations in disk range
+    small_body_a_vals = np.linspace(0.3, 0.8, num_em+num_ptsml) # equally spaced locations in disk range
     em_indices = np.round(np.linspace(0, len(small_body_a_vals) - 1, num=num_em)).astype(int) # picks num_em equally spaced indices
     em_a_vals = small_body_a_vals[em_indices]
     ptsml_a_vals = np.delete(small_body_a_vals, em_indices)
