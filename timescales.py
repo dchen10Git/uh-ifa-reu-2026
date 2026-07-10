@@ -98,13 +98,14 @@ def tau_gas(rock, parameters):
     Omega_k = 2*np.pi/rock.P / yr # Keplerian orbital frequency, converted to 1/s
     
     Sigma = Sigma_1au * (r/AU)**-alpha
-    h = h_1au * (r/AU)**beta * AU # scale height in cm
+    h = h_1au * (r/AU)**beta * AU # scale height (cm)
     v_K = r*Omega_k # cm/s
         
     rho_p = m_p / (4/3 * np.pi * R_p**3) # Ptsml density (mass / vol) in g/cm^3
     C_d = 0.44 # for km-sized ptsmls and small Mach number (see Brasser 2007) 
     rho_g = Sigma/(np.sqrt(np.pi)*(h)) # g/cm^3
-    eta = (11/16)*(h/r)**2
+    eta = (11/16) * (h/r)**2 
+    print(f"eta: {eta}")
     
     K = 2.157
     E = 1.211

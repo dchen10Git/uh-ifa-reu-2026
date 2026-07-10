@@ -36,7 +36,7 @@ def run_sim(dataset_id, sim_id):
     }
 
     num_pl = 3
-    num_em = 12
+    num_em = 6
     num_ptsml = 0
 
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
@@ -46,7 +46,7 @@ def run_sim(dataset_id, sim_id):
 
     sigma_vals = np.logspace(np.log10(100), np.log10(2000), n_sigma)
     h_vals     = np.logspace(np.log10(0.01), np.log10(0.05), n_h)
-    m_em_vals  = np.logspace(np.log10(0.04), np.log10(0.4), n_m)
+    m_em_vals  = np.logspace(np.log10(0.02), np.log10(0.2), n_m)
 
     Sigma_grid, H_grid, M_grid = np.meshgrid(sigma_vals, h_vals, m_em_vals, indexing='ij')
 
@@ -121,7 +121,7 @@ def run_sim(dataset_id, sim_id):
         return # Allow continuation of other sims
     
 if __name__ == "__main__":
-    dataset_id = 14
+    dataset_id = 15
     
     # Job number passed from terminal line (or sbatch)
     job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0

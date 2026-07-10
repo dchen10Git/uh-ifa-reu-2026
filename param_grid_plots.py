@@ -8,7 +8,7 @@ from matplotlib.gridspec import GridSpec
 from fractions import Fraction
 
 # Plot prettier
-plt.rc("savefig", dpi=600)
+plt.rc("savefig", dpi=800)
 plt.rcParams['mathtext.fontset'] = 'cm'
 plt.rcParams['font.family'] = 'serif'
 plt.rcParams['font.serif'] = ['Times New Roman'] + plt.rcParams['font.serif']
@@ -28,7 +28,6 @@ def geometric_edges(vals):
     edges[-1] = vals[-1] ** 2 / edges[-2]
     return edges
 
-
 def linear_index_edges(n):
     """Bin edges for a discretized/binned integer-index axis (e.g. log_tau_Omega_bin)."""
     edges = np.empty(n + 1)
@@ -36,7 +35,6 @@ def linear_index_edges(n):
     edges[0] = -0.5
     edges[-1] = n - 0.5
     return edges
-
 
 def bin_continuous_axis(df, col, nbins):
     """Discretize a continuous column into nbins equal-width bins, returning the
@@ -49,7 +47,6 @@ def bin_continuous_axis(df, col, nbins):
     bin_labels = df.groupby(bin_col, observed=True)[col].mean().values
     return df, bin_col, bin_labels
 
-
 AXIS_CONFIGS = {
     "Sigma_1au": dict(scale="log", label=r"$\Sigma_{1\,\rm AU}\;(\mathrm{g\,cm^{-2}})$",
                        edges=geometric_edges, tick_step=3, tick_fmt=lambda v: f"{v:.0f}"),
@@ -59,12 +56,10 @@ AXIS_CONFIGS = {
                    edges=geometric_edges, tick_step=1, tick_fmt=lambda v: f"{v:.2f}"),
 }
 
-
 def _axis_config(col):
     if col not in AXIS_CONFIGS:
         raise KeyError(f"No AXIS_CONFIGS entry for '{col}'. Add one before plotting.")
     return AXIS_CONFIGS[col]
-
 
 # Grid extraction (was duplicated 3x for grid / libration_grid / Delta_grid)
 
@@ -75,11 +70,9 @@ def get_grid(df, x_col, y_col, value_col, x_vals, y_vals, aggfunc="mean"):
           .values
     )
 
-
 def _mode_agg(x):
     m = x.mode()
     return m.iloc[0] if len(m) else np.nan
-
 
 # Cell text formatting (was a long if/elif chain scattered inline; isolated here as the one place it lives)
 
@@ -101,13 +94,11 @@ def format_cell_value(value, value_col, exp=False, bool_mode=None):
         return str(int(value))
     return f"{value:.2f}"
 
-
 def is_boolean_col(series):
     non_null = series.dropna()
     if pd.api.types.is_bool_dtype(non_null):
         return True
     return len(non_null) > 0 and non_null.isin([True, False, 0, 1]).all()
-
 
 # Single-panel draw: takes an existing ax, returns the mesh so callers (standalone plot or facet grid) can share one colorbar
 
@@ -248,7 +239,6 @@ def draw_param_panel(ax, outcomes, value_col, x_col="Sigma_1au", y_col="h_1au",
     ax.tick_params(axis="both", direction="inout")
     return mesh, bool_mode
 
-
 # Standalone single-panel figure (drop-in replacement for the original plot_param_grid_map, same public signature)
 
 def plot_param_grid_map(outcomes, value_col, label, x_col="Sigma_1au", y_col="h_1au",
@@ -274,7 +264,6 @@ def plot_param_grid_map(outcomes, value_col, label, x_col="Sigma_1au", y_col="h_
     cbar.ax.tick_params(direction="inout")
     plt.tight_layout()
     plt.show()
-
 
 # 3D extension: small multiples over facet_col (e.g. m_em), one Sigma_1au x h_1au panel per value, sharing one colorbar
 
@@ -342,17 +331,14 @@ def plot_param_grid_facets(outcomes, value_col, label, facet_col, x_col="Sigma_1
     fig.subplots_adjust(wspace=wspace, hspace=hspace)
     plt.show()
 
-
 FACET_LABELS = {
     "m_em": r"m_{\rm em}",
 }
-
 
 def _facet_title(facet_col, fv):
     if facet_col in FACET_LABELS:
         return rf"${FACET_LABELS[facet_col]} = {fv:.2g}$"
     return f"{facet_col} = {fv:.2g}"
-
 
 def plot_param_grid_multi(outcomes, value_col, label, facet_col="m_em",
                            x_col="Sigma_1au", y_col="h_1au", ncols=3,
@@ -470,8 +456,8 @@ def plot_param_grid_multi(outcomes, value_col, label, facet_col="m_em",
     plt.show()
     
     
-dataset_id = 13
+dataset_id = 14
 snapshot = -1
 outcomes = pd.read_hdf(f"dfs/outcomes{dataset_id}_{snapshot}.h5", key="df") # Load data
 
-plot_param_grid_multi(outcomes, "embryo_inside", "Embryo between two planets?", ncols=5, x_tick_step=2, y_tick_step=2)
+plot_param_grid_multi(outcomes, "embryos_inside", "Embryos between two planets", ncols=5, x_tick_step=2, y_tick_step=2)
