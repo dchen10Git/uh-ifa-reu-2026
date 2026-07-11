@@ -16,7 +16,6 @@ plt.rcParams['font.serif'] = ['Times New Roman'] + plt.rcParams['font.serif']
 RATIOS = [2/1, 5/3, 3/2, 4/3, 5/4, 6/5, 7/6, 1, 8/7, 11/9, 11/8, 9/7,
           7/5, 8/5, 7/4, 9/8, 10/9, 11/10, 12/11, 13/12, 14/13, 13/11, 13/10]
 
-
 # Axis handling: one place per column type instead of if/elif blocks scattered through the plot code
 
 def geometric_edges(vals):
@@ -27,7 +26,7 @@ def geometric_edges(vals):
     edges[0] = vals[0] ** 2 / edges[1]
     edges[-1] = vals[-1] ** 2 / edges[-2]
     return edges
-
+ 
 def linear_index_edges(n):
     """Bin edges for a discretized/binned integer-index axis (e.g. log_tau_Omega_bin)."""
     edges = np.empty(n + 1)
@@ -455,9 +454,9 @@ def plot_param_grid_multi(outcomes, value_col, label, facet_col="m_em",
     plt.suptitle(f"{label}")
     plt.show()
     
-    
-dataset_id = 15
-snapshot = -1
-outcomes = pd.read_hdf(f"dfs/outcomes{dataset_id}_{snapshot}.h5", key="df") # Load data
 
-plot_param_grid_multi(outcomes, "embryos_inside", "Embryos between two planets", ncols=5, x_tick_step=2, y_tick_step=2)
+dataset_id = 2
+snapshot   = -1
+outcomes   = pd.read_hdf(f"dfs/outcomes{dataset_id}_{snapshot}.h5", key="df") # Load data
+
+plot_param_grid_multi(outcomes, "sim_id", "Embryos between two planets", ncols=3, x_tick_step=2, y_tick_step=2)

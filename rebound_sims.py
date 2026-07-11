@@ -218,12 +218,12 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, n_out, particle_fa
             
             # Update damping timescales
             tau_a, tau_e, tau_i = np.nan, np.nan, np.nan
-            if 'ptsml' in name:
+            if 'ptsml' in name or 'embryo' in name:
                 tau_a, tau_e, tau_i = tau_gas(rock, parameters)
                 rock.params["tau_a"] = tau_a
                 rock.params["tau_e"] = tau_e
                 rock.params["tau_inc"] = tau_i
-            elif 'planet' in name or 'embryo' in name:
+            elif 'planet' in name:
                 tau_a, tau_e, tau_i = tau_t1_mig(rock, parameters)
                 rock.params["tau_a"] = tau_a
                 rock.params["tau_e"] = tau_e

@@ -105,7 +105,6 @@ def tau_gas(rock, parameters):
     C_d = 0.44 # for km-sized ptsmls and small Mach number (see Brasser 2007) 
     rho_g = Sigma/(np.sqrt(np.pi)*(h*r)) # g/cm^3
     eta = (11/16) * h**2 
-    print(f"eta: {eta}")
     
     K = 2.157
     E = 1.211
