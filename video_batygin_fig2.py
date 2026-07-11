@@ -200,8 +200,8 @@ ani = FuncAnimation(
     repeat=True,
 )
 
-# Save as gif
-writer = PillowWriter(fps=20)
-ani.save("m1_animation.gif", writer=writer)
+# # Save as gif
+# writer = PillowWriter(fps=20)
+# ani.save("m1_animation.gif", writer=writer)
 
 plt.show()

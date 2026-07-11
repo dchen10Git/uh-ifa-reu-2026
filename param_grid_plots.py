@@ -336,7 +336,7 @@ FACET_LABELS = {
 
 def _facet_title(facet_col, fv):
     if facet_col in FACET_LABELS:
-        return rf"${FACET_LABELS[facet_col]} = {fv:.2g}$"
+        return rf"${FACET_LABELS[facet_col]}$ = {fv:.2g} $m_\oplus$"
     return f"{facet_col} = {fv:.2g}"
 
 def plot_param_grid_multi(outcomes, value_col, label, facet_col="m_em",
@@ -455,8 +455,9 @@ def plot_param_grid_multi(outcomes, value_col, label, facet_col="m_em",
     plt.show()
     
 
-dataset_id = 2
+dataset_id = 1
 snapshot   = -1
 outcomes   = pd.read_hdf(f"dfs/outcomes{dataset_id}_{snapshot}.h5", key="df") # Load data
 
-plot_param_grid_multi(outcomes, "sim_id", "Embryos between two planets", ncols=3, x_tick_step=2, y_tick_step=2)
+plot_param_grid_multi(outcomes, "embryos_inside", "Embryos between two planets", ncols=5, x_tick_step=2, y_tick_step=2)
+plot_param_grid_multi(outcomes, "sim_id", "Sim ID", ncols=5, x_tick_step=2, y_tick_step=2)
