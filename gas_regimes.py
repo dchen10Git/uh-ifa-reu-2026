@@ -34,7 +34,7 @@ base_params = {
 
 # grid
 n_a, n_m = 100, 100
-a_grid = np.logspace(np.log10(0.05), np.log10(5), n_a)   # AU
+a_grid = np.logspace(np.log10(0.1), np.log10(1), n_a)   # AU
 m_grid = np.logspace(-10, -1, n_m)                        # m_earth
 
 tau_mig = np.full((n_m, n_a), np.nan)
@@ -76,30 +76,57 @@ ax.set_yscale("log")
 ax.set_xlabel("a [AU]")
 ax.set_ylabel(r"m [$M_\oplus$]")
 cb = fig.colorbar(c, ax=ax)
-cb.set_label(r"$\log_{10}(\tau_{\rm gas}/\tau_{\rm mig})$")
+cb.set_label(r"$\log_{10}(\tau_{a, \rm gas}/\tau_{a, \rm mig})$")
 ax.set_title("Gas drag (blue) vs Type I migration (red) dominant regime")
 
 fig.tight_layout()
 plt.show()
 
-# crossover mass as a function of a
-m_crit = np.full(n_a, np.nan)
-for j in range(n_a):
-    col = ratio[:, j]
-    sign_change = np.where(np.diff(np.sign(col)))[0]
-    if len(sign_change):
-        k = sign_change[0]
-        # linear interp in log-log space
-        x0, x1 = col[k], col[k+1]
-        y0, y1 = np.log10(m_grid[k]), np.log10(m_grid[k+1])
-        m_crit[j] = 10**(y0 + (0 - x0) * (y1 - y0) / (x1 - x0))
+# # === crossover mass as a function of a ===
+# m_crit = np.full(n_a, np.nan)
+# for j in range(n_a):
+#     col = ratio[:, j]
+#     sign_change = np.where(np.diff(np.sign(col)))[0]
+#     if len(sign_change):
+#         k = sign_change[0]
+#         # linear interp in log-log space
+#         x0, x1 = col[k], col[k+1]
+#         y0, y1 = np.log10(m_grid[k]), np.log10(m_grid[k+1])
+#         m_crit[j] = 10**(y0 + (0 - x0) * (y1 - y0) / (x1 - x0))
 
-fig2, ax2 = plt.subplots(figsize=(7, 5))
-ax2.plot(a_grid, m_crit, 'k-')
-ax2.set_xscale("log")
-ax2.set_yscale("log")
-ax2.set_xlabel("a [AU]")
-ax2.set_ylabel(r"$m_{\rm crit}$ [$M_\oplus$]")
-ax2.set_title("Transition mass: drag vs Type I")
-fig2.tight_layout()
+# fig2, ax2 = plt.subplots(figsize=(7, 5))
+# ax2.plot(a_grid, m_crit, 'k-')
+# ax2.set_xscale("log")
+# ax2.set_yscale("log")
+# ax2.set_xlabel("a [AU]")
+# ax2.set_ylabel(r"$m_{\rm crit}$ [$M_\oplus$]")
+# ax2.set_title("Transition mass: drag vs Type I")
+# fig2.tight_layout()
+# plt.show()
+
+# === Colormaps of individual timescales ===
+
+vmin = np.nanmin([np.log10(tau_mig), np.log10(tau_drag)])
+vmax = np.nanmax([np.log10(tau_mig), np.log10(tau_drag)])
+
+fig3, axes = plt.subplots(1, 2, figsize=(13, 6), sharey=True)
+
+titles = [r"$\tau_{a, \rm Type \,I}$ [yr]", r"$\tau_{a, \rm gas \,drag}$ [yr]"]
+
+for ax, data, title in zip(axes, [tau_mig, tau_drag], titles):
+    c = ax.pcolormesh(a_grid, m_grid, np.log10(data), cmap="viridis",
+                       shading="auto", vmin=vmin, vmax=vmax)
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.set_xlabel("a [AU]")
+    ax.set_title(title)
+    
+axes[0].set_ylabel(r"m [$M_\oplus$]")
+
+fig3.subplots_adjust(right=0.88)
+cbar_ax = fig3.add_axes([0.90, 0.115, 0.02, 0.765])
+cb = fig3.colorbar(c, cax=cbar_ax)
+cb.set_label(r"$\log_{10}(\tau)$ [yr]")
+
+fig3.savefig("timescale_colormaps_shared.png", dpi=150)
 plt.show()
