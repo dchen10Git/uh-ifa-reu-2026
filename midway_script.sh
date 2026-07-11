@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=ptsmls15
-#SBATCH --output=sbatch15_%a.out
-#SBATCH --time=3:00:00
+#SBATCH --job-name=ptsmls1
+#SBATCH --output=sbatch1_%a.out
+#SBATCH --time=2:00:00
 #SBATCH --cpus-per-task=10
 #SBATCH --account=pi-fabrycky
 #SBATCH --array=0-99

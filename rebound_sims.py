@@ -247,6 +247,10 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, n_out, particle_fa
             print(f"Sim {sim_id:<2d} | All particles removed")
             break
         
+        if not any(item.startswith('embryo') for item in alive_rock_names):
+            print(f"Sim {sim_id:<2d} | All embryos removed")
+            break
+        
         sim.dt = min_P / 30
 
         try:
