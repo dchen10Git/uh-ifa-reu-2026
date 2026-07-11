@@ -117,7 +117,7 @@ def run_sim(dataset_id, sim_id):
         reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, years, n_out, print_step=False, integrator="trace")
     except Exception as e:
         print(f"Sim {sim_id} | Unexpected error: {e}")
-        raise # Use this for debug traceback
+        # raise # Use this for debug traceback
         return # Allow continuation of other sims
     
 if __name__ == "__main__":
