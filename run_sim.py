@@ -22,6 +22,30 @@ r_earth = u.earthRad.to(u.AU)
 m_earth = u.Mearth.to(u.Msun)
 r_sun = u.Rsun.to(u.AU) 
 
+def get_params(method, sim_id):
+    if method == 'grid':
+        n_sigma, n_h, n_m = 10, 10, 10  # product equals total sim count
+
+        sigma_vals = np.logspace(np.log10(100), np.log10(10000), n_sigma)
+        h_vals     = np.logspace(np.log10(0.01), np.log10(0.10), n_h)
+        m_em_vals  = np.logspace(np.log10(10e-10), np.log10(10e-1), n_m)
+
+        Sigma_grid, H_grid, M_grid = np.meshgrid(sigma_vals, h_vals, m_em_vals, indexing='ij')
+
+        Sigma_1au = Sigma_grid.ravel()[sim_id]
+        h_1au     = H_grid.ravel()[sim_id]
+        m_em      = M_grid.ravel()[sim_id]
+    
+    elif method == 'manual':
+        Sigma_1au, h_1au, m_em = 10000, 0.01, 1e-9
+        
+    elif method == 'random':
+        rng = np.random.default_rng(sim_id)
+        Sigma_1au = loguniform.rvs(10**(454/145), 10**(517/145), random_state=rng)
+        h_1au = loguniform.rvs(10**(-437/290), 10**(-187/145), random_state=rng) 
+    
+    return Sigma_1au, h_1au, m_em
+
 def run_sim(dataset_id, sim_id):         
     # Set where to save the data
     base_dir = Path.cwd()
@@ -41,27 +65,8 @@ def run_sim(dataset_id, sim_id):
 
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
-    # # === Grid parameter space ===
-    # n_sigma, n_h, n_m = 10, 10, 10  # product equals total sim count
-
-    # sigma_vals = np.logspace(np.log10(100), np.log10(10000), n_sigma)
-    # h_vals     = np.logspace(np.log10(0.01), np.log10(0.10), n_h)
-    # m_em_vals  = np.logspace(np.log10(10e-10), np.log10(10e-1), n_m)
-
-    # Sigma_grid, H_grid, M_grid = np.meshgrid(sigma_vals, h_vals, m_em_vals, indexing='ij')
-
-    # Sigma_1au = Sigma_grid.ravel()[sim_id]
-    # h_1au     = H_grid.ravel()[sim_id]
-    # m_em      = M_grid.ravel()[sim_id]
-    
-    # === Manually set parameters ===
-    Sigma_1au, h_1au, m_em = 10000, 0.01, 1e-9
-    
-    
-    # # === Randomly sampled from parameter space ===
-    # rng = np.random.default_rng(sim_id)
-    # Sigma_1au = loguniform.rvs(10**(454/145), 10**(517/145), random_state=rng)
-    # h_1au = loguniform.rvs(10**(-437/290), 10**(-187/145), random_state=rng) 
+    method = 'manual' # set to grid, manual, or random
+    Sigma_1au, h_1au, m_em = get_params(method, sim_id)
     
     # Setting up em/ptsml disk
     # m_em = 0.4 # [m_earth]
@@ -95,7 +100,6 @@ def run_sim(dataset_id, sim_id):
     
     integrator = 'trace'
     active_embryos = False
-    
 
     parameters = {"m_vals": m_vals,
                   "m_star": m_star,

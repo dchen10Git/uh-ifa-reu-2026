@@ -2,6 +2,7 @@ import numpy as np
 import pickle
 import matplotlib.pyplot as plt
 import warnings
+from scipy.stats import circmean
 warnings.filterwarnings('ignore')
 
 '''
@@ -67,9 +68,10 @@ def threeBR_angle(b, c, d, p_bc, q_bc, p_cd, q_cd):
     return (p_cd-q_cd)*(q_bc*b['l'] - p_bc*c['l']) + (p_bc-q_bc)*(-q_cd*c['l'] + p_cd*d['l'])
 
 def libration_amp(angles, N):
-    '''Calculates libration amplitude of angles using last N samples'''
-    mean_angle = np.average(angles[-N:])
-    return np.sqrt(2/N * np.sum((angles[-N:]-mean_angle)**2 % 360))
+    '''Calculates libration amplitude of angles (inputted as degrees) using last N samples'''
+    mean_angle = np.rad2deg(circmean(np.deg2rad(angles[-N:]))) # in degrees
+    # print((angles[-N:]-mean_angle)**2)
+    return np.sqrt(2/N * np.sum((angles[-N:]-mean_angle)**2))
 
 def last_P(m_star, b):
     '''Returns the period value given m_star and planet dateframe'''
