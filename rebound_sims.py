@@ -138,7 +138,7 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, n_out, particle_fa
     num_rocks = len(rock_names)
     
     # Set up times for integration & data collection
-    factor = int(np.ceil(2*years / n_out)) # resolution (2 updates per year)
+    factor = int(np.ceil(10*years / n_out)) # resolution (10 updates per year)
     stage_times = np.linspace(start_time, years+start_time, n_out*factor, endpoint=False)  # all times to integrate over
     data_times = stage_times[::factor]  # all times to save data
 
@@ -305,7 +305,7 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, n_out, particle_fa
     
     return stage_data
 
-def simulate_system(sim_id, file_path, rock_names, parameters, years=None, n_out=100, print_step=False, integrator="trace"):
+def simulate_system(sim_id, file_path, rock_names, parameters, years=None, n_out=100, print_step=False):
     """Creates a REBOUND simulation, runs the simulation, and saves it to disk.
 
     Args:
@@ -317,14 +317,13 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, n_out
             If none is given, will use a factor of tau_a of the first planet and clip within (30kyr, 10Myr).
         n_out (int): Number of outputs to save to disk.
         print_step (bool): Whether to print step number during integration.
-        integrator (str, optional, defaults to whfast): Name of the REBOUND integrator to use.
     """        
     # Create the simulation
     sim = rebound.Simulation()
     sim.units = ('AU', 'yr', 'Msun')
-    sim.integrator = integrator
+    sim.integrator = parameters['integrator']
     
-    if integrator == 'trace':
+    if parameters['integrator'] == 'trace':
         sim.ri_trace.r_crit_hill = 5
     
     # Add the star
@@ -350,9 +349,12 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, n_out
         h = int(sim.particles[-1].hash.value)
         hash_to_name[h] = rock_names[i]
         
-    # sim.N_active = 1 + parameters['num_pl'] + parameters['num_em'] # Star + planets + embryos
     sim.N_active = 1 + parameters['num_pl'] # Star + planets (no embryos)
-    sim.testparticle_type = 1 # 1: Ptsmls will not interact with each other
+    
+    if parameters['embryos_active']: # Make embryos active particles if wanted
+        sim.N_active += parameters['num_em']
+        
+    sim.testparticle_type = 1 # 1: Test particles will not interact with each other, but will interact with planets
         
     # === Collision Handling ===
     sim.collision = "line" # "direct" might miss too many collisions
@@ -439,8 +441,8 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, n_out
     # mig.params["ide_width"] = parameters['ide_width']
     
     # Clip years if needed
-    if years < 1e3 or years > 10e6:
-        years = np.clip(years, 1e3, 10e6)
+    if years < 100 or years > 10e6:
+        years = np.clip(years, 100, 10e6)
         print(f"Sim {sim_id:<2d} | Years clipped to {years:.3e}")
             
     print(f"Starting Sim {sim_id:<2d} | {years/1000:.1f} kyr | Sigma_1au: {parameters['Sigma_1au']:.0f} | h_1au: {parameters['h_1au']:.3f} | m_em: {parameters['m_em']:.3f}", flush=True)

@@ -4,11 +4,12 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import matplotlib.patches as patches
 import matplotlib.patheffects as path_effects
+import sys
 from matplotlib.gridspec import GridSpec
 from fractions import Fraction
 
 # Plot prettier
-plt.rc("savefig", dpi=800)
+plt.rc("savefig", dpi=600)
 plt.rcParams['mathtext.fontset'] = 'cm'
 plt.rcParams['font.family'] = 'serif'
 plt.rcParams['font.serif'] = ['Times New Roman'] + plt.rcParams['font.serif']
@@ -47,9 +48,9 @@ def bin_continuous_axis(df, col, nbins):
     return df, bin_col, bin_labels
 
 AXIS_CONFIGS = {
-    "Sigma_1au": dict(scale="log", label=r"$\Sigma_{1\,\rm AU}\;(\mathrm{g\,cm^{-2}})$",
+    "Sigma_1au": dict(scale="log", label=r"$\Sigma_{0}\;(\mathrm{g\,cm^{-2}})$",
                        edges=geometric_edges, tick_step=3, tick_fmt=lambda v: f"{v:.0f}"),
-    "h_1au": dict(scale="log", label=r"$h_{1\,\rm AU}$",
+    "h_1au": dict(scale="log", label=r"$h_{0}$",
                   edges=geometric_edges, tick_step=3, tick_fmt=lambda v: f"{v:.3f}"),
     "log_K2": dict(scale="linear", label=r"$\log \mathcal{K_2}$",
                    edges=geometric_edges, tick_step=1, tick_fmt=lambda v: f"{v:.2f}"),
@@ -252,6 +253,7 @@ def plot_param_grid_map(outcomes, value_col, label, x_col="Sigma_1au", y_col="h_
         black_threshold, h_cut, bool_mode=bool_mode)
     cbar = fig.colorbar(mesh, ax=ax)
     cbar.set_label(label)
+    
     if resolved_bool_mode == "symbol":
         cbar.set_ticks([0, 1], labels=["False", "True"])
         cbar.ax.minorticks_off()
@@ -336,21 +338,29 @@ FACET_LABELS = {
 
 def _facet_title(facet_col, fv):
     if facet_col in FACET_LABELS:
-        return rf"${FACET_LABELS[facet_col]}$ = {fv:.2g} $m_\oplus$"
+        exponent = int(np.log10(fv))
+        return rf"${FACET_LABELS[facet_col]}$ = $10^{{{exponent}}} \,m_\oplus$"
     return f"{facet_col} = {fv:.2g}"
 
 def plot_param_grid_multi(outcomes, value_col, label, facet_col="m_em",
                            x_col="Sigma_1au", y_col="h_1au", ncols=3,
                            panel_size=4.0, cmap="viridis", vmin=None, vmax=None,
-                           wspace=0.45, hspace=0.55, cbar_width_ratio=0.12,
+                           cbar_gap=0.15, cbar_width_ratio=0.05,
                            x_tick_step=None, y_tick_step=None, show_text=True):
     """
     One panel per facet_col value (e.g. m_em), each a Sigma_1au x h_1au grid
-    of value_col. If value_col is float-valued, cells get a continuous
-    colormap and a shared colorbar. If value_col is boolean, cells are flat
-    green (True) / red (False) boxes with a legend instead of a colorbar.
-    The colorbar/legend sits in its own GridSpec column so it never compresses
-    or clips into the panel grid.
+    of value_col, laid out with zero space between panels so adjacent axes
+    share a single border line. Tick labels/axis labels only appear on the
+    bottom-most active row of each column and the left-most column, so the
+    grid reads as one composite plot rather than nine separate ones.
+
+    Since panels touch, there's no room for a title above each one without
+    it overlapping the panel above — so the facet value is placed as an
+    inset label in the panel's top-left corner instead of a subplot title.
+
+    If value_col is float-valued, cells get a continuous colormap and a
+    shared colorbar. If value_col is boolean, cells are flat green (True) /
+    red (False) boxes with a legend instead of a colorbar.
     """
     is_bool = is_boolean_col(outcomes[value_col])
 
@@ -365,19 +375,31 @@ def plot_param_grid_multi(outcomes, value_col, label, facet_col="m_em",
         vmax = finite.max() if vmax is None else vmax
 
     nrows = int(np.ceil(len(facet_vals) / ncols))
-    fig = plt.figure(figsize=(5+2*ncols,1.5+2*nrows))
-    gs = GridSpec(nrows, ncols + 1, figure=fig,
-                  width_ratios=[1] * ncols + [cbar_width_ratio],
-                  wspace=wspace, hspace=hspace)
+    fig = plt.figure(figsize=(2 + 2 * ncols, 1.5 + 2 * nrows))
+
+    # Outer grid separates the panel block from the colorbar column, so the
+    # colorbar gap (cbar_gap) is independent of the panel-to-panel gap, which
+    # is fixed at 0 below to make the panels touch.
+    outer_gs = GridSpec(1, 2, figure=fig, width_ratios=[1, cbar_width_ratio], wspace=cbar_gap)
+    grid_gs = outer_gs[0].subgridspec(nrows, ncols, wspace=0, hspace=0)
+
     axes = np.empty((nrows, ncols), dtype=object)
     for r in range(nrows):
         for c in range(ncols):
-            axes[r, c] = fig.add_subplot(gs[r, c])
-    cax = fig.add_subplot(gs[:, -1])
+            axes[r, c] = fig.add_subplot(grid_gs[r, c])
+    cax = fig.add_subplot(outer_gs[1])
+
+    # Last populated row per column, so the bottom edge of the grid gets tick
+    # labels correctly even when the final row is only partially filled.
+    last_active_row = {}
+    for idx in range(len(facet_vals)):
+        r, c = divmod(idx, ncols)
+        last_active_row[c] = r
 
     mesh = None
     for idx, fv in enumerate(facet_vals):
-        ax = axes[idx // ncols, idx % ncols]
+        r, c = divmod(idx, ncols)
+        ax = axes[r, c]
         subset = outcomes[outcomes[facet_col] == fv]
         if subset.empty:
             ax.axis("off")
@@ -386,10 +408,10 @@ def plot_param_grid_multi(outcomes, value_col, label, facet_col="m_em",
         x_vals = np.sort(subset[x_col].unique())
         y_vals = np.sort(subset[y_col].unique())
         values = get_grid(subset, x_col, y_col, value_col, x_vals, y_vals, aggfunc=_mode_agg)
-        
+
         if is_bool:
             values = np.where(values == True, 1.0, np.where(values == False, 0.0, np.nan))
-            
+
         x_edges, y_edges = xcfg["edges"](x_vals), ycfg["edges"](y_vals)
         if is_bool:
             cmap_obj = mcolors.ListedColormap(["#d62728", "#2ca02c"])  # False=red, True=green
@@ -424,17 +446,43 @@ def plot_param_grid_multi(outcomes, value_col, label, facet_col="m_em",
         ax.set_xscale(xcfg["scale"])
         ax.set_yscale(ycfg["scale"])
         ax.set_xticks(x_vals[0::x_tick_step])
-        ax.set_xticklabels([xcfg["tick_fmt"](v) for v in x_vals[0::x_tick_step]])
         ax.set_yticks(y_vals[0::y_tick_step])
-        ax.set_yticklabels([ycfg["tick_fmt"](v) for v in y_vals[0::y_tick_step]])
-        ax.set_xlabel(xcfg["label"])
-        ax.set_ylabel(ycfg["label"])
-        ax.set_title(_facet_title(facet_col, fv), fontsize=9, pad=8)
         ax.minorticks_off()
         ax.tick_params(axis="both", direction="inout", labelsize=8)
 
+        is_bottom_edge = (r == last_active_row[c])
+        is_left_edge = (c == 0)
+
+        if is_bottom_edge:
+            ax.set_xticklabels([xcfg["tick_fmt"](v) for v in x_vals[0::x_tick_step]])
+            ax.set_xlabel(xcfg["label"])
+        else:
+            ax.set_xticklabels([])
+            ax.set_xlabel("")
+
+        if is_left_edge:
+            ax.set_yticklabels([ycfg["tick_fmt"](v) for v in y_vals[0::y_tick_step]])
+            ax.set_ylabel(ycfg["label"])
+        else:
+            ax.set_yticklabels([])
+            ax.set_ylabel("")
+
+        # Inset facet label instead of a title (a title would overlap the
+        # panel above it now that hspace is 0)
+        ax.text(0.03, 0.97, _facet_title(facet_col, fv), transform=ax.transAxes,
+                 ha="left", va="top", fontsize=10,
+                 bbox=dict(boxstyle="round,pad=0.2", facecolor="white", alpha=0.75, linewidth=0))
+
+        # Spine linewidth controls how visible the shared border line is
+        # between adjacent panels
+        for spine in ax.spines.values():
+            spine.set_linewidth(0.8)
+            spine.set_color("black")
+            spine.set_zorder(10)
+
     for idx in range(len(facet_vals), nrows * ncols):
-        axes[idx // ncols, idx % ncols].axis("off")
+        r, c = divmod(idx, ncols)
+        axes[r, c].axis("off")
 
     cax.axis("off")
     if is_bool:
@@ -445,19 +493,26 @@ def plot_param_grid_multi(outcomes, value_col, label, facet_col="m_em",
         cax.legend(handles=legend_handles, loc="center", frameon=False)
     elif mesh is not None:
         cax.axis("on")
-        cax.set_frame_on(False)
+        cax.set_frame_on(True)
         cax.set_xticks([])
         cax.set_yticks([])
         cbar = fig.colorbar(mesh, cax=cax, fraction=1.0)
         cbar.set_label(label)
 
-    plt.suptitle(f"{label}")
     plt.show()
-    
 
-dataset_id = 1
-snapshot   = -1
+assert len(sys.argv) == 2 or len(sys.argv) == 3
+dataset_id = sys.argv[1]
+
+if len(sys.argv) == 2:
+    snapshot = -1
+else:
+    snapshot = int(sys.argv[2])
 outcomes   = pd.read_hdf(f"dfs/outcomes{dataset_id}_{snapshot}.h5", key="df") # Load data
 
-plot_param_grid_multi(outcomes, "embryos_inside", "Embryos between two planets", ncols=5, x_tick_step=2, y_tick_step=2)
-plot_param_grid_multi(outcomes, "sim_id", "Sim ID", ncols=5, x_tick_step=2, y_tick_step=2)
+outcomes = outcomes[outcomes['m_em'] != 1] # remove m_em = 1 sims
+
+plot_param_grid_multi(outcomes, "embryos_inside", "Embryos between two planets", ncols=3, show_text=False, x_tick_step=2, y_tick_step=2)
+plot_param_grid_multi(outcomes, "sim_id", "Sim ID", ncols=3, x_tick_step=2, y_tick_step=2)
+
+# USAGE: python3 param_grid_plots.py <dataset_id> <snapshot (optional, defaults to -1)>

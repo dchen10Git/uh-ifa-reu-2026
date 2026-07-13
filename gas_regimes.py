@@ -128,5 +128,4 @@ cbar_ax = fig3.add_axes([0.90, 0.115, 0.02, 0.765])
 cb = fig3.colorbar(c, cax=cbar_ax)
 cb.set_label(r"$\log_{10}(\tau)$ [yr]")
 
-fig3.savefig("timescale_colormaps_shared.png", dpi=150)
 plt.show()

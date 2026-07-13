@@ -99,11 +99,7 @@ def update(frame_idx):
                     tau_a_ref = -sim_data['planet c']["tau_a"]
                     tau_a_em = -sim_data[name]["tau_a"]
                     tau_a = (1 / tau_a_ref - 1 / tau_a_em) ** -1
-                    Omega = 2 * np.pi / sim_data[name]["P"]
-                    log_tau_a_Omega = np.log10(tau_a * Omega).to_numpy()
-                    tau_e_ref = -sim_data['planet c']["tau_e"]
-                    log_K2 = np.log10(tau_a / tau_e_ref).to_numpy()
-                    print("COLLISION", frame_idx, name, tau_a_ref[frame_idx], tau_a_em[frame_idx], tau_a[frame_idx], Omega[frame_idx], log_tau_a_Omega[frame_idx], tau_e_ref[frame_idx], log_K2[frame_idx])
+                    print("COLLISION", frame_idx, name, tau_a_ref[frame_idx], tau_a_em[frame_idx], tau_a[frame_idx])
 
     title.set_text(f"Dataset {dataset_id}, Sim {sim_id}, t = {t_plot[frame_idx]:.1f} {t_units}")
     return list(points.values()) + list(labels.values()) + [title]
@@ -117,7 +113,7 @@ frames = (
 ani = FuncAnimation(fig, update, frames=frames, interval=1000 / fps, repeat=True, blit=False)
 
 ani.save(
-    f"embryo_trajectories_dataset{dataset_id}_sim{sim_id}.mp4",
+    f"../Videos/embryo_trajectories_dataset{dataset_id}_sim{sim_id}.mp4",
     writer=FFMpegWriter(fps=fps)
 )
 

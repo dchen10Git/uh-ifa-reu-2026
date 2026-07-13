@@ -36,25 +36,29 @@ def run_sim(dataset_id, sim_id):
     }
 
     num_pl = 2
-    num_em = 6
+    num_em = 10
     num_ptsml = 0
 
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
-    # Set up parameter grid
-    n_sigma, n_h, n_m = 10, 10, 10  # product equals total sim count
+    # # === Grid parameter space ===
+    # n_sigma, n_h, n_m = 10, 10, 10  # product equals total sim count
 
-    sigma_vals = np.logspace(np.log10(100), np.log10(10000), n_sigma)
-    h_vals     = np.logspace(np.log10(0.01), np.log10(0.10), n_h)
-    m_em_vals  = np.logspace(np.log10(10e-10), np.log10(10e-1), n_m)
+    # sigma_vals = np.logspace(np.log10(100), np.log10(10000), n_sigma)
+    # h_vals     = np.logspace(np.log10(0.01), np.log10(0.10), n_h)
+    # m_em_vals  = np.logspace(np.log10(10e-10), np.log10(10e-1), n_m)
 
-    Sigma_grid, H_grid, M_grid = np.meshgrid(sigma_vals, h_vals, m_em_vals, indexing='ij')
+    # Sigma_grid, H_grid, M_grid = np.meshgrid(sigma_vals, h_vals, m_em_vals, indexing='ij')
 
-    Sigma_1au = Sigma_grid.ravel()[sim_id]
-    h_1au     = H_grid.ravel()[sim_id]
-    m_em      = M_grid.ravel()[sim_id]
+    # Sigma_1au = Sigma_grid.ravel()[sim_id]
+    # h_1au     = H_grid.ravel()[sim_id]
+    # m_em      = M_grid.ravel()[sim_id]
     
-    # # Zoomed-in, randomly sampled from parameter space
+    # === Manually set parameters ===
+    Sigma_1au, h_1au, m_em = 10000, 0.01, 1e-9
+    
+    
+    # # === Randomly sampled from parameter space ===
     # rng = np.random.default_rng(sim_id)
     # Sigma_1au = loguniform.rvs(10**(454/145), 10**(517/145), random_state=rng)
     # h_1au = loguniform.rvs(10**(-437/290), 10**(-187/145), random_state=rng) 
@@ -88,6 +92,10 @@ def run_sim(dataset_id, sim_id):
     tau_pl = 0 # planet formation timescale (set to tau_a, or 0 for planets only)
     years = 2*tau_a # Set to 5*tau_a of the first planet (or tau_a for planets only)
     n_out = 500
+    
+    integrator = 'trace'
+    active_embryos = False
+    
 
     parameters = {"m_vals": m_vals,
                   "m_star": m_star,
@@ -109,19 +117,21 @@ def run_sim(dataset_id, sim_id):
                   "m_ptsml": m_ptsml,
                   "r_ptsml": r_ptsml,
                   "tau_pl": tau_pl,
-                  "years": years
+                  "years": years,
+                  "integrator": integrator,
+                  "active_embryos": active_embryos,
                 } 
     
     # Sim integration!
     try:
-        reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, years, n_out, print_step=False, integrator="trace")
+        reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, years, n_out, print_step=True)
     except Exception as e:
         print(f"Sim {sim_id} | Unexpected error: {e}")
-        # raise # Use this for debug traceback
+        # raise # Use this for debug traceback, otherwise turn off when multitasking
         return # Allow continuation of other sims
     
 if __name__ == "__main__":
-    dataset_id = 1
+    dataset_id = 2
     
     # Job number passed from terminal line (or sbatch)
     job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
