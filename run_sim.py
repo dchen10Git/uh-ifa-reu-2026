@@ -24,11 +24,11 @@ r_sun = u.Rsun.to(u.AU)
 
 def get_params(method, sim_id):
     if method == 'grid':
-        n_sigma, n_h, n_m = 12, 12, 8  # product equals total sim count
+        n_sigma, n_h, n_m = 12, 12, 1  # product equals total sim count
 
         sigma_vals = np.logspace(np.log10(100), np.log10(10000), n_sigma)
         h_vals     = np.logspace(np.log10(0.01), np.log10(0.10), n_h)
-        m_em_vals  = np.logspace(np.log10(10e-8), np.log10(10e-1), n_m)
+        m_em_vals  = np.logspace(np.log10(1e-8), np.log10(1e-8), n_m)
 
         Sigma_grid, H_grid, M_grid = np.meshgrid(sigma_vals, h_vals, m_em_vals, indexing='ij')
 
@@ -66,7 +66,7 @@ def run_sim(dataset_id, sim_id):
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
     method = 'grid' # set to grid, manual, or random
-    Sigma_1au, h_1au, m_em = get_params(method, sim_id)
+    Sigma_1au, h_1au, m_em = get_params(method, sim_id-1152)
     
     # Setting up em/ptsml disk
     # m_em = 0.4 # [m_earth]
@@ -140,7 +140,7 @@ if __name__ == "__main__":
     # Job number passed from terminal line (or sbatch)
     job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
 
-    sims_per_job = 12
+    sims_per_job = 1
     start_sim = job_id * sims_per_job
     end_sim = start_sim + sims_per_job
     

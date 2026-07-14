@@ -3,7 +3,8 @@ import matplotlib.pyplot as plt
 import astropy.units as u
 import rebound
 from timescales import tau_t1_mig, tau_gas
-
+from helpers import plot_prettier
+plot_prettier()
 
 AU = u.AU.to(u.cm)    
 G = 4*np.pi**2 # in yr, AU, Msun
@@ -68,7 +69,7 @@ combined = 1/(1/tau_mig + 1/tau_drag)
 # ratio > 0 (log10) means drag timescale longer -> migration dominates
 ratio = np.log10(tau_drag / tau_mig)
 
-fig, ax = plt.subplots(figsize=(8, 6))
+fig, ax = plt.subplots(figsize=(5, 3))
 c = ax.pcolormesh(a_grid, m_grid, ratio, cmap="RdBu_r", shading="auto",
                    vmin=-3, vmax=3)
 ax.contour(a_grid, m_grid, ratio, levels=[0], colors="k", linewidths=2)
@@ -114,7 +115,7 @@ vmax = np.nanmax([np.log10(tau_mig), np.log10(tau_drag), np.log10(combined)])
 # Contours
 contour_levels = np.arange(np.floor(vmin), np.ceil(vmax) + 1)
 
-fig3, axes = plt.subplots(1, 3, figsize=(15, 6), sharey=True)
+fig3, axes = plt.subplots(1, 3, figsize=(8, 3), sharey=True)
 
 titles = [r"$\tau_{a, \rm Type \,I}$ [yr]", r"$\tau_{a, \rm gas \,drag}$ [yr]", "Combined"]
 
@@ -140,6 +141,8 @@ for ax, data, title in zip(axes, [tau_mig, tau_drag, combined], titles):
 axes[0].set_ylabel(r"m [$M_\oplus$]")
 
 fig3.subplots_adjust(right=0.88)
+fig3.suptitle(f"$\Sigma_0$: {Sigma_1au:.0f} g/cm$^2$, $h_0$: {h_1au:.3f}")
+
 cbar_ax = fig3.add_axes([0.90, 0.115, 0.02, 0.765])
 cb = fig3.colorbar(c, cax=cbar_ax)
 cb.set_label(r"$\log_{10}(\tau)$ [yr]")
