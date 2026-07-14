@@ -24,7 +24,7 @@ r_sun = u.Rsun.to(u.AU)
 
 def get_params(method, sim_id):
     if method == 'grid':
-        n_sigma, n_h, n_m = 15, 15, 8  # product equals total sim count
+        n_sigma, n_h, n_m = 12, 12, 8  # product equals total sim count
 
         sigma_vals = np.logspace(np.log10(100), np.log10(10000), n_sigma)
         h_vals     = np.logspace(np.log10(0.01), np.log10(0.10), n_h)
@@ -140,7 +140,7 @@ if __name__ == "__main__":
     # Job number passed from terminal line (or sbatch)
     job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
 
-    sims_per_job = 1
+    sims_per_job = 11
     start_sim = job_id * sims_per_job
     end_sim = start_sim + sims_per_job
     

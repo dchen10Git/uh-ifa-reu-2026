@@ -16,8 +16,8 @@ r_sun = u.Rsun.to(u.AU)
 # fixed disk / star parameters for this study
 m_star = 1.0
 r_star = 1.5 * r_sun
-Sigma_1au = 1700
-h_1au = 0.03
+Sigma_1au = 3400
+h_1au = 0.047
 alpha = 1
 beta = 0
 
@@ -62,6 +62,8 @@ for i, m_e in enumerate(m_grid):
 
         tau_mig[i, j] = abs(ta_mig)
         tau_drag[i, j] = abs(ta_drag)
+        
+combined = 1/(1/tau_mig + 1/tau_drag)
 
 # ratio > 0 (log10) means drag timescale longer -> migration dominates
 ratio = np.log10(tau_drag / tau_mig)
@@ -106,16 +108,30 @@ plt.show()
 
 # === Colormaps of individual timescales ===
 
-vmin = np.nanmin([np.log10(tau_mig), np.log10(tau_drag)])
-vmax = np.nanmax([np.log10(tau_mig), np.log10(tau_drag)])
+vmin = np.nanmin([np.log10(tau_mig), np.log10(tau_drag), np.log10(combined)])
+vmax = np.nanmax([np.log10(tau_mig), np.log10(tau_drag), np.log10(combined)])
 
-fig3, axes = plt.subplots(1, 2, figsize=(13, 6), sharey=True)
+# Contours
+contour_levels = np.arange(np.floor(vmin), np.ceil(vmax) + 1)
 
-titles = [r"$\tau_{a, \rm Type \,I}$ [yr]", r"$\tau_{a, \rm gas \,drag}$ [yr]"]
+fig3, axes = plt.subplots(1, 3, figsize=(15, 6), sharey=True)
 
-for ax, data, title in zip(axes, [tau_mig, tau_drag], titles):
+titles = [r"$\tau_{a, \rm Type \,I}$ [yr]", r"$\tau_{a, \rm gas \,drag}$ [yr]", "Combined"]
+
+for ax, data, title in zip(axes, [tau_mig, tau_drag, combined], titles):
     c = ax.pcolormesh(a_grid, m_grid, np.log10(data), cmap="viridis",
                        shading="auto", vmin=vmin, vmax=vmax)
+    
+    cs = ax.contour(
+        a_grid, m_grid, np.log10(data),
+        levels=contour_levels,
+        colors="white",
+        linewidths=0.8,
+        alpha=0.8
+    )
+
+    ax.clabel(cs, fmt=r"$10^{%d}$", fontsize=8)
+    
     ax.set_xscale("log")
     ax.set_yscale("log")
     ax.set_xlabel("a [AU]")
