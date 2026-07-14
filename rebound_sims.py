@@ -453,7 +453,8 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, n_out
     
     # Save data
     save_simulation_run(data, sim_id, file_path, 
-                        sim_metadata={"num_rocks": num_rocks, 
+                        sim_metadata={"sim_id": sim_id,
+                                      "num_rocks": num_rocks, 
                                       "collision_log": collision_log,
                                       "particle_fate": particle_fate,
                                     } | parameters)

@@ -1,3 +1,5 @@
+# USAGE: python3 param_grid_plots.py <dataset_id> <snapshot (optional, defaults to -1)>
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -330,6 +332,7 @@ def plot_param_grid_facets(outcomes, value_col, label, facet_col, x_col="Sigma_1
 
     # Applied after the colorbar so its layout adjustment doesn't clobber this
     fig.subplots_adjust(wspace=wspace, hspace=hspace)
+    fig.tight_layout()
     plt.show()
 
 FACET_LABELS = {
@@ -375,7 +378,7 @@ def plot_param_grid_multi(outcomes, value_col, label, facet_col="m_em",
         vmax = finite.max() if vmax is None else vmax
 
     nrows = int(np.ceil(len(facet_vals) / ncols))
-    fig = plt.figure(figsize=(2 + 2 * ncols, 1.5 + 2 * nrows))
+    fig = plt.figure(figsize=(2 + 2 * ncols, 1.5 + 1 * nrows))
 
     # Outer grid separates the panel block from the colorbar column, so the
     # colorbar gap (cbar_gap) is independent of the panel-to-panel gap, which
@@ -498,7 +501,7 @@ def plot_param_grid_multi(outcomes, value_col, label, facet_col="m_em",
         cax.set_yticks([])
         cbar = fig.colorbar(mesh, cax=cax, fraction=1.0)
         cbar.set_label(label)
-
+    plt.tight_layout()
     plt.show()
 
 assert len(sys.argv) == 2 or len(sys.argv) == 3
@@ -508,11 +511,14 @@ if len(sys.argv) == 2:
     snapshot = -1
 else:
     snapshot = int(sys.argv[2])
-outcomes   = pd.read_hdf(f"dfs/outcomes{dataset_id}_{snapshot}.h5", key="df") # Load data
+outcomes = pd.read_hdf(f"dfs/outcomes{dataset_id}_{snapshot}.h5", key="df") # Load data
 
-# outcomes = outcomes[outcomes['m_em'] <= 0.1] # remove m_em = 1 sims
+outcomes = outcomes[outcomes['m_em'] <= 0.1] # remove m_em = 1 sims
+outcomes['scattered (%)'] = outcomes["em_surv_rate (%)"] - 100*outcomes["embryos_inside"]/6
+outcomes['accreted (%)'] = 100 - outcomes["em_surv_rate (%)"]
 
-plot_param_grid_multi(outcomes, "embryos_inside", "Embryos between two planets", ncols=4, show_text=False, x_tick_step=2, y_tick_step=2)
-plot_param_grid_multi(outcomes, "sim_id", "Sim ID", ncols=4, x_tick_step=2, y_tick_step=2)
-
-# USAGE: python3 param_grid_plots.py <dataset_id> <snapshot (optional, defaults to -1)>
+plot_param_grid_multi(outcomes, "embryos_inside", "Embryos between two planets", ncols=7, show_text=False, x_tick_step=2, y_tick_step=2)
+# plot_param_grid_multi(outcomes, "em_surv_rate (%)", "Total embryos survived (%)", ncols=4, show_text=False, x_tick_step=2, y_tick_step=2)
+# plot_param_grid_multi(outcomes, "scattered (%)", "Embryos scattered (%)", ncols=4, show_text=False, x_tick_step=2, y_tick_step=2)
+# plot_param_grid_multi(outcomes, "accreted (%)", "Embryos accreted (%)", ncols=4, show_text=False, x_tick_step=2, y_tick_step=2)
+# plot_param_grid_multi(outcomes, "sim_id", "Sim ID", ncols=4, x_tick_step=2, y_tick_step=2)
