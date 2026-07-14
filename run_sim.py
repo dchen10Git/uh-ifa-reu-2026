@@ -32,7 +32,7 @@ def get_params(method, sim_id):
 
         Sigma_grid, H_grid, M_grid = np.meshgrid(sigma_vals, h_vals, m_em_vals, indexing='ij')
 
-        Sigma_1au, h_1au, m_em = Sigma_grid.ravel()[sim_id]
+        Sigma_1au = Sigma_grid.ravel()[sim_id]
         h_1au     = H_grid.ravel()[sim_id]
         m_em      = M_grid.ravel()[sim_id]
     
@@ -65,7 +65,7 @@ def run_sim(dataset_id, sim_id):
 
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
-    method = 'manual' # set to grid, manual, or random
+    method = 'grid' # set to grid, manual, or random
     Sigma_1au, h_1au, m_em = get_params(method, sim_id)
     
     # Setting up em/ptsml disk
@@ -128,7 +128,7 @@ def run_sim(dataset_id, sim_id):
     
     # Sim integration!
     try:
-        reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, years, n_out, print_step=True)
+        reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, years, n_out, print_step=False)
     except Exception as e:
         print(f"Sim {sim_id} | Unexpected error: {e}")
         # raise # Use this for debug traceback, otherwise turn off when multitasking
@@ -140,7 +140,7 @@ if __name__ == "__main__":
     # Job number passed from terminal line (or sbatch)
     job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
 
-    sims_per_job = 11
+    sims_per_job = 12
     start_sim = job_id * sims_per_job
     end_sim = start_sim + sims_per_job
     

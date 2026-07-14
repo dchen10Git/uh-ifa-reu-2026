@@ -510,9 +510,9 @@ else:
     snapshot = int(sys.argv[2])
 outcomes   = pd.read_hdf(f"dfs/outcomes{dataset_id}_{snapshot}.h5", key="df") # Load data
 
-outcomes = outcomes[outcomes['m_em'] != 1] # remove m_em = 1 sims
+# outcomes = outcomes[outcomes['m_em'] <= 0.1] # remove m_em = 1 sims
 
-plot_param_grid_multi(outcomes, "embryos_inside", "Embryos between two planets", ncols=3, show_text=False, x_tick_step=2, y_tick_step=2)
-plot_param_grid_multi(outcomes, "sim_id", "Sim ID", ncols=3, x_tick_step=2, y_tick_step=2)
+plot_param_grid_multi(outcomes, "embryos_inside", "Embryos between two planets", ncols=4, show_text=False, x_tick_step=2, y_tick_step=2)
+plot_param_grid_multi(outcomes, "sim_id", "Sim ID", ncols=4, x_tick_step=2, y_tick_step=2)
 
 # USAGE: python3 param_grid_plots.py <dataset_id> <snapshot (optional, defaults to -1)>
