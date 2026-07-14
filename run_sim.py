@@ -37,7 +37,7 @@ def get_params(method, sim_id):
         m_em      = M_grid.ravel()[sim_id]
     
     elif method == 'manual':
-        Sigma_1au, h_1au, m_em = 10000, 0.01, 1e-9
+        Sigma_1au, h_1au, m_em = 5000, 0.03, 1e-6
         
     elif method == 'random':
         rng = np.random.default_rng(sim_id)
@@ -65,7 +65,7 @@ def run_sim(dataset_id, sim_id):
 
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
-    method = 'grid' # set to grid, manual, or random
+    method = 'manual' # set to grid, manual, or random
     Sigma_1au, h_1au, m_em = get_params(method, sim_id)
     
     # Setting up em/ptsml disk
@@ -99,7 +99,7 @@ def run_sim(dataset_id, sim_id):
     n_out = 500
     
     integrator = 'trace'
-    active_embryos = False
+    embryos_active = False
 
     parameters = {"m_vals": m_vals,
                   "m_star": m_star,
@@ -123,7 +123,7 @@ def run_sim(dataset_id, sim_id):
                   "tau_pl": tau_pl,
                   "years": years,
                   "integrator": integrator,
-                  "active_embryos": active_embryos,
+                  "embryos_active": embryos_active,
                 } 
     
     # Sim integration!
@@ -140,7 +140,7 @@ if __name__ == "__main__":
     # Job number passed from terminal line (or sbatch)
     job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
 
-    sims_per_job = 18
+    sims_per_job = 1
     start_sim = job_id * sims_per_job
     end_sim = start_sim + sims_per_job
     
