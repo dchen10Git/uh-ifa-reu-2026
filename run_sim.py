@@ -28,7 +28,7 @@ def get_params(method, sim_id):
 
         sigma_vals = np.logspace(np.log10(100), np.log10(10000), n_sigma)
         h_vals     = np.logspace(np.log10(0.01), np.log10(0.10), n_h)
-        m_em_vals  = np.logspace(np.log10(1e-8), np.log10(1e-1), n_m)
+        m_em_vals  = np.logspace(np.log10(1e-7), np.log10(1e0), n_m)
 
         Sigma_grid, H_grid, M_grid = np.meshgrid(sigma_vals, h_vals, m_em_vals, indexing='ij')
 
