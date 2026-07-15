@@ -3,6 +3,9 @@ import matplotlib.pyplot as plt
 import astropy.units as u
 import rebound
 from timescales import tau_t1_mig, tau_gas
+import warnings
+warnings.filterwarnings('ignore')
+
 from helpers import plot_prettier
 plot_prettier()
 
@@ -18,7 +21,7 @@ r_sun = u.Rsun.to(u.AU)
 m_star = 1.0
 r_star = 1.5 * r_sun
 Sigma_1au = 3400
-h_1au = 0.047
+h_1au = 0.06
 alpha = 1
 beta = 0
 
@@ -34,8 +37,8 @@ base_params = {
 }
 
 # grid
-n_a, n_m = 100, 100
-a_grid = np.logspace(np.log10(0.1), np.log10(1), n_a)   # AU
+n_a, n_m = 500, 100
+a_grid = np.logspace(np.log10(0.09), np.log10(1), n_a)   # AU
 m_grid = np.logspace(-10, -1, n_m)                        # m_earth
 
 tau_mig = np.full((n_m, n_a), np.nan)

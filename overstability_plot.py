@@ -15,8 +15,8 @@ r_sun = u.Rsun.to(u.AU)
 
 # fixed parameters
 p_coupling = 2    # p = 2 roughly matches B&M26
-Sigma_1au = 1700  # g/cm^2, not a big effect
-a1 = 0.5          # AU, (fixed, doesn't change much)
+Sigma_1au = 621  # g/cm^2
+a1 = 0.10366          # AU (does not significantly affect the plot)
 m2_earth = 5      # outer planet mass, m_earth
 m_star = 1.0      # Msun
 r_star = 1.5 * r_sun
@@ -72,10 +72,11 @@ def get_ta_te(alpha_res, m1_earth, h_1au):
     ta1_mig, te1_mig = -np.array(tau_t1_mig(sim.particles[1], parameters))[0:2]
     ta1_gas, te1_gas = -np.array(tau_gas(sim.particles[1], parameters))[0:2]
     ta1 = 1/(1/ta1_mig + 1/ta1_gas)
+    print(ta1_mig, te1_gas,ta1)
+    
     te1 = 1/(1/te1_mig + 1/te1_gas)
     ta2, te2 = -np.array(tau_t1_mig(sim.particles[2], parameters))[0:2]
     return ta1, te1, ta2, te2
-
 
 def eps_p_and_crit(alpha_res, m_order, B, R, m1_earth, h_1au):
     ta1, te1, ta2, te2 = get_ta_te(alpha_res, m1_earth, h_1au)
@@ -94,13 +95,15 @@ def eps_p_and_crit(alpha_res, m_order, B, R, m1_earth, h_1au):
     eps_p_crit = C * (te / ta) ** 1.5
     return eps_p, eps_p_crit
 
-
 # grid: m1 on x, h_1au on y
-n_m1, n_h = 200, 200
-m1_grid = np.logspace(np.log10(1e-13), np.log10(1e-9), n_m1)     # m_earth
-h_1au_grid = np.logspace(np.log10(0.06), np.log10(0.11), n_h)  # aspect ratio -- assumption, adjust range if needed
+n_m1, n_h = 80, 80
+# m1_grid = np.logspace(np.log10(1e-13), np.log10(1e-9), n_m1) # m_earth
+# h_1au_grid = np.logspace(np.log10(0.06), np.log10(0.11), n_h) # aspect ratio
 
-klist = [0, 2, 3, 4, 5, 6, 7]
+m1_grid = np.logspace(np.log10(3), np.log10(6), n_m1) # m_earth
+h_1au_grid = np.logspace(np.log10(0.01), np.log10(0.11), n_h) # aspect ratio
+
+klist = [0, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
 diffs = {}
 eps_crit = {}
@@ -202,6 +205,7 @@ ax.set_xlabel(r'$m_1$ [$m_\oplus$]')
 ax.set_ylabel(r'$h/r$')
 ax.set_yticks([0.01, 0.02, 0.04, 0.06, 0.08, 0.10])
 ax.set_yticklabels(['0.01', '0.02', '0.04', '0.06', '0.08', '0.10'])
+ax.minorticks_off()
 ax.set_ylim(0.06, 0.11)
 ax.tick_params(axis='y', right=True)
 ax.set_title(rf'Overstability boundaries | $a_1$={a1} AU | $p$={p_coupling} | $m_2$={m2_earth} $M_\oplus$')

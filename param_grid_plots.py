@@ -516,8 +516,189 @@ outcomes = pd.read_hdf(f"dfs/outcomes{dataset_id}_{snapshot}.h5", key="df") # Lo
 outcomes['scattered (%)'] = outcomes["em_surv_rate (%)"] - 100*outcomes["embryos_inside"]/6
 outcomes['accreted (%)'] = 100 - outcomes["em_surv_rate (%)"]
 
-plot_param_grid_multi(outcomes, "embryos_inside", "Embryos between two planets", ncols=3, show_text=False, x_tick_step=2, y_tick_step=2)
+# plot_param_grid_multi(outcomes, "embryos_inside", "Embryos between two planets", ncols=3, show_text=False, x_tick_step=2, y_tick_step=2)
 # plot_param_grid_multi(outcomes, "em_surv_rate (%)", "Total embryos survived (%)", ncols=3, show_text=False, x_tick_step=2, y_tick_step=2)
 # plot_param_grid_multi(outcomes, "scattered (%)", "Embryos scattered (%)", ncols=3, show_text=False, x_tick_step=2, y_tick_step=2)
 # plot_param_grid_multi(outcomes, "accreted (%)", "Embryos accreted (%)", ncols=3, show_text=False, x_tick_step=2, y_tick_step=2)
-plot_param_grid_multi(outcomes, "sim_id", "Sim ID", ncols=3, x_tick_step=2, y_tick_step=2)
+# plot_param_grid_multi(outcomes, "sim_id", "Sim ID", ncols=3, x_tick_step=2, y_tick_step=2)
+
+def draw_stacked_fraction_panel(ax, outcomes, value_cols, colors, x_col="Sigma_1au", y_col="h_1au",
+                                 x_tick_step=None, y_tick_step=None, tick_rotation=0, h_cut=None,
+                                 show_xticklabels=True, show_yticklabels=True,
+                                 show_xlabel=True, show_ylabel=True):
+    """
+    value_cols: column names whose values sum to ~100 per cell, bottom to top.
+    colors: matching list of facecolors.
+    Subdivides each cell's rectangle into stacked bands sized proportionally
+    to each fraction (renormalized per cell in case of rounding/missing data).
+
+    show_xticklabels/show_yticklabels/show_xlabel/show_ylabel let a caller
+    building a touching grid of panels (e.g. plot_stacked_fraction_facets)
+    suppress ticks/labels on interior panels while keeping the tick marks
+    themselves and the axis scale/limits consistent across all panels.
+    """
+    x_vals = np.sort(outcomes[x_col].unique())
+    y_vals = np.sort(outcomes[y_col].unique())
+    if h_cut:
+        y_vals = y_vals[y_vals <= h_cut]
+
+    x_edges = _axis_config(x_col)["edges"](x_vals)
+    y_edges = _axis_config(y_col)["edges"](y_vals)
+
+    grids = [get_grid(outcomes, x_col, y_col, col, x_vals, y_vals, aggfunc="mean") for col in value_cols]
+
+    for i in range(len(x_vals)):
+        x0, x1 = x_edges[i], x_edges[i + 1]
+        for j in range(len(y_vals)):
+            y0, y1 = y_edges[j], y_edges[j + 1]
+            fracs = [g[i, j] for g in grids]
+            if any(np.isnan(f) for f in fracs):
+                continue
+            total = sum(fracs)
+            if total <= 0:
+                continue
+            cum = y0
+            cell_height = y1 - y0
+            for frac, color in zip(fracs, colors):
+                band_height = cell_height * (frac / total)
+                ax.add_patch(patches.Rectangle((x0, cum), x1 - x0, band_height,
+                                                facecolor=color, edgecolor="none"))
+                cum += band_height
+
+    ax.set_xscale(_axis_config(x_col)["scale"])
+    ax.set_yscale(_axis_config(y_col)["scale"])
+    ax.set_xlim(x_edges[0], x_edges[-1])
+    ax.set_ylim(y_edges[0], y_edges[-1])
+
+    xcfg = _axis_config(x_col)
+    step = x_tick_step if x_tick_step is not None else xcfg["tick_step"]
+    ax.set_xticks(x_vals[1::step])
+    if show_xticklabels:
+        ax.set_xticklabels([xcfg["tick_fmt"](v) for v in x_vals[1::step]],
+                            rotation=tick_rotation, ha="right" if tick_rotation else "center")
+    else:
+        ax.set_xticklabels([])
+    ax.set_xlabel(xcfg["label"] if show_xlabel else "")
+
+    ycfg = _axis_config(y_col)
+    step = y_tick_step if y_tick_step is not None else ycfg["tick_step"]
+    ax.set_yticks(y_vals[1::step])
+    if show_yticklabels:
+        ax.set_yticklabels([ycfg["tick_fmt"](v) for v in y_vals[1::step]])
+    else:
+        ax.set_yticklabels([])
+    ax.set_ylabel(ycfg["label"] if show_ylabel else "")
+
+    ax.minorticks_off()
+    ax.tick_params(axis="both", direction="inout")
+
+
+def plot_stacked_fraction_grid(outcomes, value_cols, colors, labels, x_col="Sigma_1au",
+                                y_col="h_1au", h_cut=None):
+    """Standalone single-panel version, analogous to plot_param_grid_map."""
+    fig, ax = plt.subplots(figsize=(5, 4))
+    draw_stacked_fraction_panel(ax, outcomes, value_cols, colors, x_col, y_col, h_cut=h_cut)
+    legend_handles = [patches.Patch(facecolor=c, label=l) for c, l in zip(colors, labels)]
+    ax.legend(handles=legend_handles, loc="upper right", fontsize=7, framealpha=0.9)
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_stacked_fraction_facets(outcomes, value_cols, colors, labels, facet_col,
+                                  x_col="Sigma_1au", y_col="h_1au", facet_vals=None,
+                                  ncols=3, panel_size=2.3, h_cut=None,
+                                  facet_fmt=lambda v: f"{v:.2g}",
+                                  x_tick_step=None, y_tick_step=None, tick_rotation=45,
+                                  legend_gap=0.12):
+    """
+    Touching small-multiples version, analogous to plot_param_grid_multi:
+    panels share borders (wspace=hspace=0), tick labels only appear on the
+    bottom-most active row of each column and the left-most column, and the
+    facet value is shown as an inset label (a title would overlap the panel
+    above it since there's no vertical gap).
+    """
+    if facet_vals is None:
+        facet_vals = np.sort(outcomes[facet_col].unique())
+
+    xcfg, ycfg = _axis_config(x_col), _axis_config(y_col)
+    if x_tick_step is None:
+        x_tick_step = xcfg["tick_step"] * 2
+    if y_tick_step is None:
+        y_tick_step = ycfg["tick_step"] * 2
+
+    nrows = int(np.ceil(len(facet_vals) / ncols))
+    fig = plt.figure(figsize=(panel_size * ncols, panel_size * nrows+1))
+
+    # Outer grid separates the panel block from the legend row below it, so
+    # legend_gap is independent of the panel-to-panel gap (fixed at 0 below).
+    outer_gs = GridSpec(2, 1, figure=fig, height_ratios=[nrows, 0.35], hspace=legend_gap)
+    grid_gs = outer_gs[0].subgridspec(nrows, ncols, wspace=0, hspace=0)
+    legend_ax = fig.add_subplot(outer_gs[1])
+    legend_ax.axis("off")
+
+    axes = np.empty((nrows, ncols), dtype=object)
+    for r in range(nrows):
+        for c in range(ncols):
+            axes[r, c] = fig.add_subplot(grid_gs[r, c])
+
+    # Last populated row per column, so the bottom edge of the grid gets tick
+    # labels correctly even when the final row is only partially filled.
+    last_active_row = {}
+    for idx in range(len(facet_vals)):
+        r, c = divmod(idx, ncols)
+        last_active_row[c] = r
+
+    for idx, fv in enumerate(facet_vals):
+        r, c = divmod(idx, ncols)
+        ax = axes[r, c]
+        subset = outcomes[outcomes[facet_col] == fv]
+        if subset.empty:
+            ax.axis("off")
+            continue
+
+        is_bottom_edge = (r == last_active_row[c])
+        is_left_edge = (c == 0)
+
+        draw_stacked_fraction_panel(
+            ax, subset, value_cols, colors, x_col, y_col,
+            x_tick_step=x_tick_step, y_tick_step=y_tick_step,
+            tick_rotation=tick_rotation, h_cut=h_cut,
+            show_xticklabels=is_bottom_edge, show_yticklabels=is_left_edge,
+            show_xlabel=is_bottom_edge, show_ylabel=is_left_edge,
+        )
+        ax.tick_params(axis="both", labelsize=8)
+
+        # Inset facet label instead of a title (a title would overlap the
+        # panel above it now that hspace is 0)
+        ax.text(0.03, 0.97, _facet_title(facet_col, fv), transform=ax.transAxes,
+                 ha="left", va="top", fontsize=10,
+                 bbox=dict(boxstyle="round,pad=0.2", facecolor="white", alpha=0.75, linewidth=0))
+
+        # Spine linewidth controls how visible the shared border line is
+        # between adjacent panels
+        for spine in ax.spines.values():
+            spine.set_linewidth(0.8)
+            spine.set_color("black")
+            spine.set_zorder(10)
+
+    for idx in range(len(facet_vals), nrows * ncols):
+        r, c = divmod(idx, ncols)
+        axes[r, c].axis("off")
+
+    legend_handles = [patches.Patch(facecolor=c, label=l) for c, l in zip(colors, labels)]
+    legend_ax.legend(handles=legend_handles, loc="center", ncol=len(labels), fontsize=9, frameon=False)
+
+    plt.show()
+
+
+# Example call, replacing the plot_param_grid_multi calls for these three metrics:
+#
+outcomes['inside (%)'] = 100 * outcomes["embryos_inside"] / 6
+
+plot_stacked_fraction_facets(
+    outcomes,
+    value_cols=["scattered (%)", "inside (%)", "accreted (%)"],
+    colors=["steelblue", "limegreen", "gainsboro"],
+    labels=["Scattered", "Inside", "Accreted"],
+    facet_col="m_em", ncols=3, x_tick_step=2, y_tick_step=2,
+)

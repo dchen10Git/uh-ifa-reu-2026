@@ -138,7 +138,7 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, n_out, particle_fa
     num_rocks = len(rock_names)
     
     # Set up times for integration & data collection
-    factor = int(np.ceil(10*years / n_out)) # resolution (10 updates per year)
+    factor = int(np.ceil(30*years / n_out)) # resolution (10 updates per year)
     stage_times = np.linspace(start_time, years+start_time, n_out*factor, endpoint=False)  # all times to integrate over
     data_times = stage_times[::factor]  # all times to save data
 
@@ -220,20 +220,18 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, n_out, particle_fa
             tau_a, tau_e, tau_i = np.nan, np.nan, np.nan
             if 'ptsml' in name:
                 tau_a, tau_e, tau_i = tau_gas(rock, parameters)
-                rock.params["tau_a"] = tau_a
-                rock.params["tau_e"] = tau_e
-                rock.params["tau_inc"] = tau_i
             elif 'embryo' in name: # combines both gas drag and Type I
                 tau_a1, tau_e1, tau_i1 = tau_gas(rock, parameters)
-                tau_a2, tau_e2, tau_i2 = tau_t1_mig(rock, parameters)
-                rock.params["tau_a"] = (tau_a1**-1 + tau_a2**-1)**-1
-                rock.params["tau_e"] = (tau_e1**-1 + tau_e2**-1)**-1
-                rock.params["tau_inc"] = (tau_i1**-1 + tau_i2**-1)**-1
+                tau_a2, tau_e2, tau_i2 = tau_t1_mig(rock, parameters, ide=False)
+                tau_a = (tau_a1**-1 + tau_a2**-1)**-1
+                tau_e = (tau_e1**-1 + tau_e2**-1)**-1
+                tau_i = (tau_i1**-1 + tau_i2**-1)**-1
             elif 'planet' in name:
                 tau_a, tau_e, tau_i = tau_t1_mig(rock, parameters)
-                rock.params["tau_a"] = tau_a
-                rock.params["tau_e"] = tau_e
-                rock.params["tau_inc"] = tau_i
+                
+            rock.params["tau_a"] = tau_a
+            rock.params["tau_e"] = tau_e
+            rock.params["tau_inc"] = tau_i
             
             # Save data only at some times
             if i % factor == 0:
@@ -415,37 +413,12 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, n_out
     mof = rebx.load_force("modify_orbits_forces")
     rebx.add_force(mof)
     
-    # # NEW IDE model
-    # mig = rebx.load_force("IDE_typeI")
-    # rebx.add_force(mig)
-    
-    # mig.params["rx"] = parameters["ide_position"]
-    # mig.params["w"] = parameters['ide_width']
-    # mig.params["tIm_surface_density_1"] = parameters['Sigma_1au'] * AU**2 / Msun
-    # mig.params["tIm_sd0_exponent"] = parameters['alpha']
-    # mig.params["tIm_scale_height_1"] = parameters['h_1au']
-    # mig.params["tIm_flaring_index"] = parameters['beta']
-    # mig.params["zeta"] = parameters['zeta']
-    # mig.params["min_mass"] = parameters['m_em'] * m_earth
-    
-    # # REBOUNDx implementation of Type I migration (for debugging)
-    # mig = rebx.load_force("type_I_migration")
-    # rebx.add_force(mig)
-
-    # # REBOUNDx Type I migration implementation
-    # mig.params["tIm_surface_density_1"] = parameters['Sigma_1au'] * AU**2 / Msun # Converted to Msun/AU^2 from g/cm^2
-    # mig.params["tIm_surface_density_exponent"] = parameters['alpha']
-    # mig.params["tIm_scale_height_1"] = parameters['h_1au']
-    # mig.params["tIm_flaring_index"] = parameters['beta']
-    # mig.params["ide_position"] = parameters["ide_position"]
-    # mig.params["ide_width"] = parameters['ide_width']
-    
     # Clip years if needed
     if years < 100 or years > 10e6:
         years = np.clip(years, 100, 10e6)
         print(f"Sim {sim_id:<2d} | Years clipped to {years:.3e}")
             
-    print(f"Starting Sim {sim_id:<2d} | {years/1000:.1f} kyr | Sigma_1au: {parameters['Sigma_1au']:.0f} | h_1au: {parameters['h_1au']:.3f} | m_em: {parameters['m_em']:.3f}", flush=True)
+    print(f"Starting Sim {sim_id:<2d} | {years/1000:.1f} kyr | Sigma_1au: {parameters['Sigma_1au']:.0f} | h_1au: {parameters['h_1au']:.3f} | m_em: {parameters['m_em']:.1g}", flush=True)
     
     data = integrate_sim(sim, sim_id, rock_names, parameters, years, n_out, particle_fate, hash_to_name, start_time=0, print_step=print_step)
     
