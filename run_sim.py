@@ -1,8 +1,9 @@
+# To run: python3 -W ignore run_sim.py <start_sim_id>
+
 # === IMPORTS ===
 import numpy as np
 from astropy import units as u
 from pathlib import Path
-from time import time
 from dask.distributed import Client, LocalCluster
 from scipy.stats import loguniform
 
@@ -37,7 +38,7 @@ def get_params(method, sim_id):
         m_em      = M_grid.ravel()[sim_id]
     
     elif method == 'manual':
-        Sigma_1au, h_1au, m_em = 6500, 0.06, 1e-7
+        Sigma_1au, h_1au, m_em = 1900, 0.08, 1e-4
         
     elif method == 'random':
         rng = np.random.default_rng(sim_id)
@@ -60,7 +61,7 @@ def run_sim(dataset_id, sim_id):
     }
 
     num_pl = 2
-    num_em = 1
+    num_em = 200
     num_ptsml = 0
 
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
@@ -72,7 +73,7 @@ def run_sim(dataset_id, sim_id):
     r_em = (m_em)**(1/3) # [r_earth]; assuming density same as Earth
     m_ptsml = 0.0033 # [m_earth]
     r_ptsml = (100*1e5/AU)/r_earth # 100 km in [r_earth]
-    small_body_a_vals = np.linspace(0.8, 0.8, num_em+num_ptsml) # equally spaced locations in disk range
+    small_body_a_vals = np.linspace(0.3, 0.8, num_em+num_ptsml) # equally spaced locations in disk range
     em_indices = np.round(np.linspace(0, len(small_body_a_vals) - 1, num=num_em)).astype(int) # picks num_em equally spaced indices
     em_a_vals = small_body_a_vals[em_indices]
     ptsml_a_vals = np.delete(small_body_a_vals, em_indices)
@@ -96,10 +97,11 @@ def run_sim(dataset_id, sim_id):
     tau_a = 1/(2.7+1.1*alpha) / m_vals[0] / (Sigma_1au*AU**2 / Msun) * h_1au**2 / (2*np.pi) # for a = 1
     tau_pl = 0 # planet formation timescale (set to tau_a, or 0 for planets only)
     years = 2*tau_a # Set to 2*tau_a for 1 migrating planet, 6*tau_pl for 3 migrating planets
-    n_out = 50000
+    n_out = 10000
     
     integrator = 'trace'
     embryos_active = False
+    end_when_no_ems = True
 
     parameters = {"m_vals": m_vals,
                   "m_star": m_star,
@@ -124,11 +126,12 @@ def run_sim(dataset_id, sim_id):
                   "years": years,
                   "integrator": integrator,
                   "embryos_active": embryos_active,
+                  "end_when_no_ems": end_when_no_ems,
                 } 
     
     # Sim integration!
     try:
-        reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, years, n_out, print_step=True)
+        reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, years, n_out, print_step=False)
     except Exception as e:
         print(f"Sim {sim_id} | Unexpected error: {e}")
         raise # Use this for debug traceback, otherwise turn off when multitasking
@@ -140,7 +143,7 @@ if __name__ == "__main__":
     # Job number passed from terminal line (or sbatch)
     job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
 
-    sims_per_job = 10
+    sims_per_job = 1
     start_sim = job_id * sims_per_job
     end_sim = start_sim + sims_per_job
     
@@ -151,7 +154,6 @@ if __name__ == "__main__":
     print(f"Directory: {dataset_dir}")
 
     print(f"Dataset: {dataset_id}")
-    tstart = time()
 
     # === MULTIPROCESSING ===    
     # Start a local Dask cluster
@@ -166,6 +168,3 @@ if __name__ == "__main__":
     client.close()
     cluster.close()
     
-    print(f'Time elapsed: {int(time()-tstart)} sec')
-    
-# To run, use python3 -W ignore run_sim.py <start_sim_id>

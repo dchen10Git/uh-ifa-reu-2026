@@ -5,6 +5,7 @@ import rebound
 import reboundx
 from astropy import units as u
 import warnings
+from time import time
 warnings.filterwarnings('ignore')
 
 from timescales import tau_t1_mig, tau_gas
@@ -138,7 +139,7 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, n_out, particle_fa
     num_rocks = len(rock_names)
     
     # Set up times for integration & data collection
-    factor = int(np.ceil(30*years / n_out)) # resolution (10 updates per year)
+    factor = int(np.ceil(10*years / n_out)) # resolution (10 updates per year)
     stage_times = np.linspace(start_time, years+start_time, n_out*factor, endpoint=False)  # all times to integrate over
     data_times = stage_times[::factor]  # all times to save data
 
@@ -222,7 +223,7 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, n_out, particle_fa
                 tau_a, tau_e, tau_i = tau_gas(rock, parameters)
             elif 'embryo' in name: # combines both gas drag and Type I
                 tau_a1, tau_e1, tau_i1 = tau_gas(rock, parameters)
-                tau_a2, tau_e2, tau_i2 = tau_t1_mig(rock, parameters, ide=False)
+                tau_a2, tau_e2, tau_i2 = tau_t1_mig(rock, parameters)
                 tau_a = (tau_a1**-1 + tau_a2**-1)**-1
                 tau_e = (tau_e1**-1 + tau_e2**-1)**-1
                 tau_i = (tau_i1**-1 + tau_i2**-1)**-1
@@ -251,7 +252,7 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, n_out, particle_fa
             print(f"Sim {sim_id:<2d} | All particles removed")
             break
         
-        if not any(item.startswith('embryo') for item in alive_rock_names):
+        if parameters['end_when_no_ems'] and not any(item.startswith('embryo') for item in alive_rock_names):
             print(f"Sim {sim_id:<2d} | All embryos removed")
             break
         
@@ -316,6 +317,8 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, n_out
         n_out (int): Number of outputs to save to disk.
         print_step (bool): Whether to print step number during integration.
     """        
+    tstart = time() # record time elapsed
+    
     # Create the simulation
     sim = rebound.Simulation()
     sim.units = ('AU', 'yr', 'Msun')
@@ -421,9 +424,7 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, n_out
     print(f"Starting Sim {sim_id:<2d} | {years/1000:.1f} kyr | Sigma_1au: {parameters['Sigma_1au']:.0f} | h_1au: {parameters['h_1au']:.3f} | m_em: {parameters['m_em']:.1g}", flush=True)
     
     data = integrate_sim(sim, sim_id, rock_names, parameters, years, n_out, particle_fate, hash_to_name, start_time=0, print_step=print_step)
-    
-    print(f"Saving Sim {sim_id}                           ")
-    
+        
     # Save data
     save_simulation_run(data, sim_id, file_path, 
                         sim_metadata={"sim_id": sim_id,
@@ -431,3 +432,5 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, n_out
                                       "collision_log": collision_log,
                                       "particle_fate": particle_fate,
                                     } | parameters)
+    
+    print(f'Sim {sim_id} saved | Time elapsed: {int(time()-tstart)} sec            ')

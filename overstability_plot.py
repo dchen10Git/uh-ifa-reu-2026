@@ -3,8 +3,9 @@ import pickle as pkl
 import matplotlib.pyplot as plt
 import astropy.units as u
 import rebound
-
 from timescales import tau_t1_mig, tau_gas
+from helpers import plot_prettier_lite
+plot_prettier_lite(dpi=600)
 
 # Unit conversions
 AU = u.AU.to(u.cm)
@@ -15,8 +16,7 @@ r_sun = u.Rsun.to(u.AU)
 
 # fixed parameters
 p_coupling = 2    # p = 2 roughly matches B&M26
-Sigma_1au = 621  # g/cm^2
-a1 = 0.10366          # AU (does not significantly affect the plot)
+Sigma_1au = 1700  # g/cm^2 (this doesn't matter)
 m2_earth = 5      # outer planet mass, m_earth
 m_star = 1.0      # Msun
 r_star = 1.5 * r_sun
@@ -41,44 +41,48 @@ def get_k_params(k):
 def get_ta_te(alpha_res, m1_earth, h_1au):
     """Build a minimal two-body system (embryo inner, planet outer) at the
     k:k-1 resonance, a1 fixed, and return (ta1, te1, ta2, te2) from tau_t1_mig."""
+    
+    ide_position = 0.1
+    ide_width = h_1au
+
     m1 = m1_earth * m_earth
     m2 = m2_earth * m_earth
+    # a1 = ide_position*(1+ide_width) - np.arccos((9/11))*4*ide_width*ide_position/(2*np.pi) + 0.0001 # right before the IDE
+    a1 = 0.11
     a2 = a1 / alpha_res
-
     r1 = (m1_earth ** (1 / 3)) * r_earth  # embryo radius scaling from fake_sim
     r2 = r2_earth * r_earth
+    
+    parameters = {
+        "m_vals": np.array([m1, m2]),
+        "m_star": m_star,
+        "r_vals": np.array([r1, r2]),
+        "r_star": r_star,
+        "Sigma_1au": Sigma_1au,  # should be given in g/cm^2
+        "h_1au": h_1au,
+        "alpha": 1,
+        "beta": 0,
+        "ide_position": ide_position,
+        "ide_width": ide_width,
+    }
 
     sim = rebound.Simulation()
     sim.units = ('AU', 'yr', 'Msun')
     sim.add(m=m_star, r=r_star, hash='star')
     sim.add(m=m1, r=r1, a=a1, hash='embryo')
     sim.add(m=m2, r=r2, a=a2, hash='planet')
-
-    parameters = {
-        "m_vals": np.array([m1, m2]),
-        "m_star": m_star,
-        "r_vals": np.array([r1, r2]),
-        "r_star": r_star,
-        "a_vals": np.array([a1, a2]),
-        "Sigma_1au": Sigma_1au,  # should be given in g/cm^2
-        "h_1au": h_1au,
-        "alpha": 1,
-        "beta": 0,
-        "ide_position": 0.1,
-        "ide_width": h_1au,
-    }
-
+    
     # Both gas drag and t1mig on embryo
     ta1_mig, te1_mig = -np.array(tau_t1_mig(sim.particles[1], parameters))[0:2]
     ta1_gas, te1_gas = -np.array(tau_gas(sim.particles[1], parameters))[0:2]
     ta1 = 1/(1/ta1_mig + 1/ta1_gas)
-    print(ta1_mig, te1_gas,ta1)
+    # print(ta1_mig, te1_gas, ta1)
     
     te1 = 1/(1/te1_mig + 1/te1_gas)
     ta2, te2 = -np.array(tau_t1_mig(sim.particles[2], parameters))[0:2]
     return ta1, te1, ta2, te2
 
-def eps_p_and_crit(alpha_res, m_order, B, R, m1_earth, h_1au):
+def eps_p_and_crit(alpha_res, m_order, B, R, m1_earth, h_1au):    
     ta1, te1, ta2, te2 = get_ta_te(alpha_res, m1_earth, h_1au)
     zeta = m1_earth / m2_earth
     ta = 1 / (1 / ta2 - 1 / ta1)
@@ -95,15 +99,16 @@ def eps_p_and_crit(alpha_res, m_order, B, R, m1_earth, h_1au):
     eps_p_crit = C * (te / ta) ** 1.5
     return eps_p, eps_p_crit
 
+# === PARAMETERS ===
 # grid: m1 on x, h_1au on y
-n_m1, n_h = 80, 80
-# m1_grid = np.logspace(np.log10(1e-13), np.log10(1e-9), n_m1) # m_earth
-# h_1au_grid = np.logspace(np.log10(0.06), np.log10(0.11), n_h) # aspect ratio
-
-m1_grid = np.logspace(np.log10(3), np.log10(6), n_m1) # m_earth
+n_m1, n_h = 30, 30
+m1_grid = np.logspace(np.log10(1e-1), np.log10(6), n_m1) # m_earth
 h_1au_grid = np.logspace(np.log10(0.01), np.log10(0.11), n_h) # aspect ratio
 
-klist = [0, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+# m1_grid = np.logspace(np.log10(1e-9), np.log10(1e-3), n_m1) # m_earth
+# h_1au_grid = np.logspace(np.log10(0.01), np.log10(0.2), n_h) # aspect ratio
+
+klist = [1, 2, 3, 4, 5, 6, 7, 8, 9] # 1 indicates overstable for ALL resonances
 
 diffs = {}
 eps_crit = {}
@@ -146,14 +151,14 @@ for i in range(n_h):
         # Here: largest k satisfying eps_p > eps_p_crit.
         chosen = np.nan
         for k in klist[::-1]:
-            if k == 0:
+            if k == 1:
                 continue
             if diffs[k][i, j] > 0:
                 chosen = k
 
         # If none are stable, use the smallest resonance
         if np.isnan(chosen):
-            chosen = 0
+            chosen = 1
 
         k_background[i, j] = chosen
         
@@ -192,22 +197,23 @@ for k, color in zip(klist[1:], colors):
 
 cbar = plt.colorbar(im, ax=ax)
 cbar.set_ticks(klist)
+cbar.set_ticklabels(["Overstable"] + klist[1:])
 cbar.set_label(r'Resonance index $k$')
 
 ax.legend(handles=legend_handles,
           title='MMR boundary',
-          loc='upper left',
+          loc='lower left',
           fontsize=8)
 
 ax.set_xscale('log')
 ax.set_yscale('log')
 ax.set_xlabel(r'$m_1$ [$m_\oplus$]')
 ax.set_ylabel(r'$h/r$')
-ax.set_yticks([0.01, 0.02, 0.04, 0.06, 0.08, 0.10])
-ax.set_yticklabels(['0.01', '0.02', '0.04', '0.06', '0.08', '0.10'])
+ax.set_yticks([0.01, 0.02, 0.04, 0.06, 0.08, 0.10, 0.15, 0.20])
+ax.set_yticklabels(['0.01', '0.02', '0.04', '0.06', '0.08', '0.10', '0.15', '0.20'])
+ax.set_ylim(h_1au_grid[0], h_1au_grid[-1])
 ax.minorticks_off()
-ax.set_ylim(0.06, 0.11)
 ax.tick_params(axis='y', right=True)
-ax.set_title(rf'Overstability boundaries | $a_1$={a1} AU | $p$={p_coupling} | $m_2$={m2_earth} $M_\oplus$')
+ax.set_title(rf'Overstability boundaries | $p = {p_coupling}$ | $m_2 ={m2_earth} M_\oplus$')
 
 plt.show()

@@ -26,3 +26,9 @@ def plot_prettier(dpi=200, fontsize=8, usetex=False):
         plt.rcParams['mathtext.fontset'] = 'cm'
         plt.rcParams['font.family'] = 'serif'
         plt.rcParams['font.serif'] = ['Times New Roman'] + plt.rcParams['font.serif']
+        
+def plot_prettier_lite(dpi=200):
+    plt.rc("savefig", dpi=dpi)
+    plt.rcParams['mathtext.fontset'] = 'cm'
+    plt.rcParams['font.family'] = 'serif'
+    plt.rcParams['font.serif'] = ['Times New Roman'] + plt.rcParams['font.serif']
