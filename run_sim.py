@@ -131,14 +131,14 @@ def run_sim(dataset_id, sim_id):
     
     # Sim integration!
     try:
-        reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, years, n_out, print_step=False)
+        reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, years, n_out, print_step=True)
     except Exception as e:
         print(f"Sim {sim_id} | Unexpected error: {e}")
-        raise # Use this for debug traceback, otherwise turn off when multitasking
+        raise # Use this for debug traceback, otherwise turn off when multiprocessing
         return # Allow continuation of other sims
     
 if __name__ == "__main__":
-    dataset_id = 2
+    dataset_id = 3
     
     # Job number passed from terminal line (or sbatch)
     job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
