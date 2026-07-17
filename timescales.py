@@ -43,7 +43,7 @@ def rebx_ide(a, parameters):
     
     return tau_a_red
 
-def tau_t1_mig(rock, parameters, ide=True):
+def tau_t1_mig(rock, parameters, t, ide=True):
     """Calculates damping timescales for Type I migration given parameters for one rock.
     Based on formulas from Pichierri 2018, Tanaka & Ward 2004, and Cresswell & Nelson 2008. 
     Should be applied on planets and embryos.
@@ -53,12 +53,19 @@ def tau_t1_mig(rock, parameters, ide=True):
         rock (rebound.particle.Particle): REBOUND particle object to 
         calculate damping timescales for.
         parameters (dict): Dictionary containing planet and star parameters.
+        t (float): Current simulation time in years.
+        ide (bool): Whether to apply the IDE correction.
 
     Returns:
         tuple: Tuple containing tau_a, tau_e, tau_i for the given object,
         in units of years
     """                        
     Sigma_1au, h_1au, alpha, beta = parameters['Sigma_1au'], parameters['h_1au'], parameters['alpha'], parameters['beta']
+    
+    if parameters['tau_dissipation']:
+        # If disk dissipation is enabled, reduce Sigma_1au over time
+        tau_dissipation = parameters['tau_dissipation']
+        Sigma_1au *= np.exp(-t/tau_dissipation)
     
     # Everything should be in simulation units
     m_p = rock.m
@@ -86,7 +93,7 @@ def tau_t1_mig(rock, parameters, ide=True):
     
     return -t_a, -t_e, -t_i # Negative so damping
   
-def tau_gas(rock, parameters, ide=True):
+def tau_gas(rock, parameters, t, ide=True):
     """Calculates damping timescales given parameters for one rock.
     Based on formulas from Adachi 1976. Should be applied on planetesimals.
     Note that negative tau indicates damping for modify_orbits_forces.
@@ -95,6 +102,8 @@ def tau_gas(rock, parameters, ide=True):
         rock (rebound.particle.Particle): REBOUND particle object to 
         calculate damping timescales for.
         parameters (dict): Dictionary containing planet and star parameters.
+        t (float): Current simulation time in years.
+        ide (bool): Whether to apply the IDE correction.
 
     Returns:
         tuple: Tuple containing tau_a, tau_e, tau_i for the given object,
@@ -102,6 +111,11 @@ def tau_gas(rock, parameters, ide=True):
     """                                     
     Sigma_1au, h_1au, alpha, beta = parameters['Sigma_1au'], parameters['h_1au'], parameters['alpha'], parameters['beta']
     
+    if parameters['tau_dissipation']:
+        # If disk dissipation is enabled, reduce Sigma_1au over time
+        tau_dissipation = parameters['tau_dissipation']
+        Sigma_1au *= np.exp(-t/tau_dissipation)
+
     m_p = rock.m * Msun # convert to g
     r = rock.d * AU # distance to the star, converted to cm
     R_p = rock.r * AU # radius, converted to cm

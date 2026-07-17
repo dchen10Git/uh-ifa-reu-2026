@@ -38,7 +38,7 @@ def get_params(method, sim_id):
         m_em      = M_grid.ravel()[sim_id]
     
     elif method == 'manual':
-        Sigma_1au, h_1au, m_em = 1900, 0.08, 1e-4
+        Sigma_1au, h_1au, m_em = 2000, 0.04, 1e-4
         
     elif method == 'random':
         rng = np.random.default_rng(sim_id)
@@ -60,10 +60,7 @@ def run_sim(dataset_id, sim_id):
         "r_vals": [10, 10, 10] # [r_earth]; younger planets are puffier
     }
 
-    num_pl = 2
-    num_em = 200
-    num_ptsml = 0
-
+    num_pl, num_em, num_ptsml = 2, 2, 0
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
     method = 'manual' # set to grid, manual, or random
@@ -97,11 +94,12 @@ def run_sim(dataset_id, sim_id):
     tau_a = 1/(2.7+1.1*alpha) / m_vals[0] / (Sigma_1au*AU**2 / Msun) * h_1au**2 / (2*np.pi) # for a = 1
     tau_pl = 0 # planet formation timescale (set to tau_a, or 0 for planets only)
     years = 2*tau_a # Set to 2*tau_a for 1 migrating planet, 6*tau_pl for 3 migrating planets
-    n_out = 10000
+    n_out = 1000
     
     integrator = 'trace'
     embryos_active = False
     end_when_no_ems = True
+    tau_dissipation = tau_a # set to None for no disk dissipation, or a number for disk dissipation timescale [yr]
 
     parameters = {"m_vals": m_vals,
                   "m_star": m_star,
@@ -127,6 +125,7 @@ def run_sim(dataset_id, sim_id):
                   "integrator": integrator,
                   "embryos_active": embryos_active,
                   "end_when_no_ems": end_when_no_ems,
+                  "tau_dissipation": tau_dissipation,
                 } 
     
     # Sim integration!
