@@ -1,4 +1,15 @@
 import matplotlib.pyplot as plt
+import astropy.units as u
+import numpy as np
+
+# === UNIT CONVERSIONS ===
+AU = u.AU.to(u.cm)    
+G = 4*np.pi**2 # in yr, AU, Msun
+Msun = u.Msun.to(u.g) 
+yr = u.yr.to(u.s)    
+r_earth = u.earthRad.to(u.AU)
+m_earth = u.Mearth.to(u.Msun)
+r_sun = u.Rsun.to(u.AU)
 
 def plot_prettier(dpi=200, fontsize=8, usetex=False): 
     '''
@@ -33,3 +44,9 @@ def plot_prettier_lite(dpi=200):
     plt.rcParams['font.family'] = 'serif'
     plt.rcParams['font.serif'] = ['Times New Roman'] + plt.rcParams['font.serif']
 
+def get_omega(m_star, m, a):
+    """Mean motion of the inner body, treating it as a two-body orbit
+    around the star (embryo mass included, though it's usually negligible
+    next to m_star). Units should be in AU, yr, Msun. Returns Omega in 1/yr."""
+    P1 = np.sqrt(a ** 3 / (m_star + m))  # yr, as long as G = 4 pi^2
+    return 2 * np.pi / P1

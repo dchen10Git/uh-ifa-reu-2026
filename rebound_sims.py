@@ -8,7 +8,7 @@ import warnings
 from time import time
 warnings.filterwarnings('ignore')
 
-from timescales import tau_t1_mig, tau_gas
+from timescales import tau_mig_and_gas, tau_t1_mig, tau_gas
 
 # === UNIT CONVERSIONS ===
 AU = u.AU.to(u.cm) # cm per AU
@@ -221,12 +221,8 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, n_out, particle_fa
             tau_a, tau_e, tau_i = np.nan, np.nan, np.nan
             if 'ptsml' in name:
                 tau_a, tau_e, tau_i = tau_gas(rock, parameters, t)
-            elif 'embryo' in name: # combines both gas drag and Type I
-                tau_a1, tau_e1, tau_i1 = tau_gas(rock, parameters, t)
-                tau_a2, tau_e2, tau_i2 = tau_t1_mig(rock, parameters, t)
-                tau_a = (tau_a1**-1 + tau_a2**-1)**-1
-                tau_e = (tau_e1**-1 + tau_e2**-1)**-1
-                tau_i = (tau_i1**-1 + tau_i2**-1)**-1
+            elif 'embryo' in name: 
+                tau_a, tau_e, tau_i = tau_mig_and_gas(rock, parameters, t) # combines both gas drag and Type I
             elif 'planet' in name:
                 tau_a, tau_e, tau_i = tau_t1_mig(rock, parameters, t)
                 

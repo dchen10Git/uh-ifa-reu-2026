@@ -2,7 +2,7 @@ dfs/
 old_code.py
 plot_orbital_video.py
 ptsml_example.ipynb
-run_sim_single.py
+one_sim.py
 *.mp4
 *.gif
 *.png
