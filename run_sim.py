@@ -25,7 +25,7 @@ r_sun = u.Rsun.to(u.AU)
 
 def get_params(method, sim_id):
     if method == 'grid':
-        n_sigma, n_h, n_m = 1, 1, 16  # product equals total sim count
+        n_sigma, n_h, n_m = 30, 30, 16  # product equals total sim count
 
         # m_em_vals  = np.logspace(np.log10(1e-8), np.log10(1e-1), n_m)
         m_em_vals  = np.array([1e-8, 5e-8, 1e-7, 5e-7, 1e-6, 5e-6, 1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2, 1e-1, 5e-1]) # [m_earth]
@@ -39,7 +39,7 @@ def get_params(method, sim_id):
         Sigma_1au = Sigma_grid.ravel()[sim_id]
     
     elif method == 'manual':
-        Sigma_1au, h_1au, m_em = 170, 0.10, 1e-4
+        Sigma_1au, h_1au, m_em = 17000, 0.01, 1e-4
         
     elif method == 'random':
         rng = np.random.default_rng(sim_id)
@@ -64,7 +64,7 @@ def run_sim(dataset_id, sim_id):
     num_pl, num_em, num_ptsml = 2, 20, 0
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
-    method = 'grid' # set to grid, manual, or random
+    method = 'manual' # set to grid, manual, or random
     Sigma_1au, h_1au, m_em = get_params(method, sim_id)
     
     # Setting up em/ptsml disk
@@ -158,18 +158,17 @@ if __name__ == "__main__":
     print(f"Directory: {dataset_dir}")
 
     print(f"Dataset: {dataset_id}")
-
+    
     # === MULTIPROCESSING ===    
     # Start a local Dask cluster
-    n_cpus = int(os.environ.get("SLURM_CPUS_PER_TASK", 1))
+    if "SLURM_CPUS_PER_TASK" in os.environ:
+        n_cpus = int(os.environ["SLURM_CPUS_PER_TASK"])
+    else:
+        n_cpus = os.cpu_count() or 1  # macOS/Windows fallback
+
     print(f"CPUs: {n_cpus}")
     
-    cluster = LocalCluster(
-        n_workers=n_cpus,
-        threads_per_worker=1,
-        processes=True,
-        dashboard_address=None,  # avoid port-binding attempts on a compute node
-    )
+    cluster = LocalCluster(dashboard_address=None)
     
     client = Client(cluster)
     
