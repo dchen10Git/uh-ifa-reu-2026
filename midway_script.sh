@@ -1,10 +1,12 @@
 #!/bin/bash
 #SBATCH --job-name=ptsmls2
 #SBATCH --output=sbatch2_%a.out
-#SBATCH --time=00:30:00
-#SBATCH --cpus-per-task=1
+#SBATCH --error=sbatch2_%a.err
+#SBATCH --time=36:00:00
+#SBATCH --mem-per-cpu=2048
+#SBATCH --cpus-per-task=16
 #SBATCH --account=pi-fabrycky
-#SBATCH --array=0
+#SBATCH --array=0-99
 
 echo "Script started."
 echo "Array task: ${SLURM_ARRAY_TASK_ID}"

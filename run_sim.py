@@ -4,7 +4,7 @@
 import numpy as np
 from astropy import units as u
 from pathlib import Path
-from dask.distributed import Client, LocalCluster
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from scipy.stats import loguniform
 
 import sys
@@ -63,7 +63,7 @@ def run_sim(dataset_id, sim_id):
     num_pl, num_em, num_ptsml = 2, 20, 0
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
-    method = 'manual' # set to grid, manual, or random
+    method = 'grid' # set to grid, manual, or random
     Sigma_1au, h_1au, m_em = get_params(method, sim_id)
     
     # Setting up em/ptsml disk
@@ -93,10 +93,12 @@ def run_sim(dataset_id, sim_id):
     # tau_a for first planet               # Converted to Msun/AU^2 from g/cm^2
     tau_a = 1/(2.7+1.1*alpha) / m_vals[0] / (Sigma_1au*AU**2 / Msun) * h_1au**2 / (2*np.pi) # for a = 1
     tau_pl = 0 # planet formation timescale (set to tau_a, or 0 for planets only)
-    years = 3*tau_a # Set to 2*tau_a for 1 migrating planet, 6*tau_pl for 3 migrating planets
-    print(years)
-    years = 20000
+    years = 2*tau_a # Set to 2*tau_a for 1 migrating planet, 6*tau_pl for 3 migrating planets
     n_out = 50
+
+    if years > 2500000: # 2500 kyr (cutoff for ~35 hours of runtime on Midway)
+        print(f"Skipping sim {sim_id} due to long runtime: years = {years:.2e})")
+        return # Skip this sim as it takes too long to run
     
     integrator = 'trace'
     embryos_active = False # if False, will still interact with planets (but not with other embryos)
@@ -132,10 +134,10 @@ def run_sim(dataset_id, sim_id):
     
     # Sim integration!
     try:
-        reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, years, n_out, print_step=True)
+        reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, years, n_out, print_step=False)
     except Exception as e:
         print(f"Sim {sim_id} | Unexpected error: {e}")
-        raise # Use this for debug traceback, otherwise turn off when multiprocessing
+        # raise # Use this for debug traceback, otherwise turn off when multiprocessing
         return # Allow continuation of other sims
     
 if __name__ == "__main__":
@@ -144,7 +146,7 @@ if __name__ == "__main__":
     # Job number passed from terminal line (or sbatch)
     job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
 
-    sims_per_job = 1
+    sims_per_job = 144
     start_sim = job_id * sims_per_job
     end_sim = start_sim + sims_per_job
     
@@ -160,12 +162,9 @@ if __name__ == "__main__":
     # Start a local Dask cluster
     n_cpus = int(os.environ.get("SLURM_CPUS_PER_TASK", 1))
     print(f"CPUs: {n_cpus}")
-    cluster = LocalCluster()    
-    client = Client(cluster)
     
-    futures = [client.submit(run_sim, dataset_id, sim_id) for sim_id in range(start_sim, end_sim)]
-    client.gather(futures)
-
-    client.close()
-    cluster.close()
+    with ProcessPoolExecutor(max_workers=n_cpus) as executor:
+        futures = [executor.submit(run_sim, dataset_id, sim_id) for sim_id in range(start_sim, end_sim)]
+        for f in as_completed(futures):
+            f.result()  # re-raises exceptions instead of silently dropping them
     
