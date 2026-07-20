@@ -244,13 +244,31 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, n_out, particle_fa
             if orb.P < min_P:
                 min_P = orb.P
 
-        if not alive_rock_names:
-            print(f"Sim {sim_id:<2d} | All particles removed")
+        # Stop simulation if all planets are gone
+        if not any(item.startswith('planet') for item in alive_rock_names):
+            print(f"Sim {sim_id:<2d} | All planets removed")
             break
         
-        if parameters['end_when_no_ems'] and not any(item.startswith('embryo') for item in alive_rock_names):
-            print(f"Sim {sim_id:<2d} | All embryos removed")
-            break
+        # Stop simulation if all embryos are gone or above planet c
+        if parameters['end_when_no_ems']:
+            no_embryos_surviving = not any(item.startswith('embryo') for item in alive_rock_names)
+            no_embryos_below = False
+            for item in alive_rock_names:
+                if item.startswith('embryo'):
+                    rock = sim.particles[item]
+                    orb = rock.orbit(primary=star)
+                    if orb.a < sim.particles['planet c'].a + 0.05:
+                        no_embryos_below = False
+                        break
+                    else:
+                        no_embryos_below = True
+                        
+            if no_embryos_surviving:
+                print(f"Sim {sim_id:<2d} | All embryos removed")
+                break
+            elif no_embryos_below:
+                print(f"Sim {sim_id:<2d} | All embryos above planet c")
+                break
         
         sim.dt = min_P / 30
 

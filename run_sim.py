@@ -25,20 +25,20 @@ r_sun = u.Rsun.to(u.AU)
 
 def get_params(method, sim_id):
     if method == 'grid':
-        n_sigma, n_h, n_m = 12, 12, 1  # product equals total sim count
+        n_sigma, n_h, n_m = 5, 5, 4  # product equals total sim count
 
-        sigma_vals = np.logspace(np.log10(100), np.log10(10000), n_sigma)
+        m_em_vals  = np.logspace(np.log10(1e-8), np.log10(1e-1), n_m)
         h_vals     = np.logspace(np.log10(0.01), np.log10(0.10), n_h)
-        m_em_vals  = np.logspace(np.log10(1e-8), np.log10(1e-8), n_m)
+        sigma_vals = np.logspace(np.log10(170), np.log10(17000), n_sigma)
 
-        Sigma_grid, H_grid, M_grid = np.meshgrid(sigma_vals, h_vals, m_em_vals, indexing='ij')
+        M_grid, H_grid, Sigma_grid = np.meshgrid(m_em_vals, h_vals, sigma_vals, indexing='ij')
 
-        Sigma_1au = Sigma_grid.ravel()[sim_id]
-        h_1au     = H_grid.ravel()[sim_id]
         m_em      = M_grid.ravel()[sim_id]
+        h_1au     = H_grid.ravel()[sim_id]
+        Sigma_1au = Sigma_grid.ravel()[sim_id]
     
     elif method == 'manual':
-        Sigma_1au, h_1au, m_em = 2000, 0.04, 1e-4
+        Sigma_1au, h_1au, m_em = 1700, 0.04, 1e-4
         
     elif method == 'random':
         rng = np.random.default_rng(sim_id)
@@ -60,10 +60,10 @@ def run_sim(dataset_id, sim_id):
         "r_vals": [10, 10, 10] # [r_earth]; younger planets are puffier
     }
 
-    num_pl, num_em, num_ptsml = 2, 10, 0
+    num_pl, num_em, num_ptsml = 2, 20, 0
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
-    method = 'manual' # set to grid, manual, or random
+    method = 'grid' # set to grid, manual, or random
     Sigma_1au, h_1au, m_em = get_params(method, sim_id)
     
     # Setting up em/ptsml disk
@@ -94,12 +94,13 @@ def run_sim(dataset_id, sim_id):
     tau_a = 1/(2.7+1.1*alpha) / m_vals[0] / (Sigma_1au*AU**2 / Msun) * h_1au**2 / (2*np.pi) # for a = 1
     tau_pl = 0 # planet formation timescale (set to tau_a, or 0 for planets only)
     years = 3*tau_a # Set to 2*tau_a for 1 migrating planet, 6*tau_pl for 3 migrating planets
+    years = 1
     n_out = 1000
     
     integrator = 'trace'
     embryos_active = False
     end_when_no_ems = True
-    tau_dissipation = tau_a # set to None for no disk dissipation, or a number for disk dissipation timescale [yr]
+    tau_dissipation = None # set to None for no disk dissipation, or a number for disk dissipation timescale [yr] (e.g. tau_a)
 
     parameters = {"m_vals": m_vals,
                   "m_star": m_star,
@@ -130,19 +131,19 @@ def run_sim(dataset_id, sim_id):
     
     # Sim integration!
     try:
-        reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, years, n_out, print_step=True)
+        reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, years, n_out, print_step=False)
     except Exception as e:
         print(f"Sim {sim_id} | Unexpected error: {e}")
         raise # Use this for debug traceback, otherwise turn off when multiprocessing
         return # Allow continuation of other sims
     
 if __name__ == "__main__":
-    dataset_id = 3
+    dataset_id = 2
     
     # Job number passed from terminal line (or sbatch)
     job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
 
-    sims_per_job = 1
+    sims_per_job = 100
     start_sim = job_id * sims_per_job
     end_sim = start_sim + sims_per_job
     
