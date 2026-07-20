@@ -28,7 +28,7 @@ def get_params(method, sim_id):
         n_sigma, n_h, n_m = 30, 30, 12  # product equals total sim count
 
         # m_em_vals  = np.logspace(np.log10(1e-8), np.log10(1e-1), n_m)
-        m_em_vals  = np.array([1e-6, 5e-6, 1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2, 1e-1, 5e-1]) # [m_earth]
+        m_em_vals  = np.array([1e-6, 5e-6, 1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2, 1e-1, 5e-7]) # [m_earth]
         h_vals     = np.logspace(np.log10(0.01), np.log10(0.10), n_h)
         sigma_vals = np.logspace(np.log10(170), np.log10(17000), n_sigma)
 
