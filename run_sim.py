@@ -106,7 +106,7 @@ def run_sim(dataset_id, sim_id):
     years = 2*tau_a # Set to 2*tau_a for 1 migrating planet, 6*tau_pl for 3 migrating planets
     n_out = 50
 
-    if years <= 2500000: # 2500 kyr (cutoff for ~35 hours of runtime on Midway)
+    if years > 2500000: # 2500 kyr (cutoff for ~35 hours of runtime on Midway)
         # print(f"Skipping sim {sim_id} due to long runtime: years = {years:.2e})")
         return # Skip this sim as it takes too long to run
     
