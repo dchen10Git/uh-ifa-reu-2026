@@ -53,6 +53,15 @@ def run_sim(dataset_id, sim_id):
     base_dir = Path.cwd()
     file_path = base_dir.parent / "sim_results" / f"dataset{dataset_id}" / f"sim{sim_id}.h5"
     
+    try:
+        saved_sim = reb_sims.load_simulation_run(file_path)
+    except FileNotFoundError:
+        saved_sim = None
+    
+    if saved_sim:
+        print(f"Sim {sim_id} already exists. Skipping.")
+        return
+    
     # === PARAMETERS ===
     planets = {
         "name": ['planet b', 'planet c', 'planet d'],
@@ -97,8 +106,8 @@ def run_sim(dataset_id, sim_id):
     years = 2*tau_a # Set to 2*tau_a for 1 migrating planet, 6*tau_pl for 3 migrating planets
     n_out = 50
 
-    if years > 2500000: # 2500 kyr (cutoff for ~35 hours of runtime on Midway)
-        print(f"Skipping sim {sim_id} due to long runtime: years = {years:.2e})")
+    if years <= 2500000: # 2500 kyr (cutoff for ~35 hours of runtime on Midway)
+        # print(f"Skipping sim {sim_id} due to long runtime: years = {years:.2e})")
         return # Skip this sim as it takes too long to run
     
     integrator = 'trace'
@@ -147,7 +156,7 @@ if __name__ == "__main__":
     # Job number passed from terminal line (or sbatch)
     job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
 
-    sims_per_job = 10800
+    sims_per_job = 108
     start_sim = job_id * sims_per_job
     end_sim = start_sim + sims_per_job
     
