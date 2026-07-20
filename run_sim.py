@@ -162,7 +162,6 @@ if __name__ == "__main__":
     # === MULTIPROCESSING ===    
     # Start a local Dask cluster
     n_cpus = int(os.environ.get("SLURM_CPUS_PER_TASK", 1))
-    n_cpus = 10
     print(f"CPUs: {n_cpus}")
     
     cluster = LocalCluster(
