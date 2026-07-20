@@ -4,7 +4,7 @@
 import numpy as np
 from astropy import units as u
 from pathlib import Path
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from dask.distributed import Client, LocalCluster
 from scipy.stats import loguniform
 
 import sys
@@ -162,9 +162,18 @@ if __name__ == "__main__":
     # Start a local Dask cluster
     n_cpus = int(os.environ.get("SLURM_CPUS_PER_TASK", 1))
     print(f"CPUs: {n_cpus}")
+    cluster = LocalCluster(
+        n_workers=n_cpus,
+        threads_per_worker=1,
+        processes=True,
+        dashboard_address=None,  # avoid port-binding attempts on a compute node
+    )
     
-    with ProcessPoolExecutor(max_workers=n_cpus) as executor:
-        futures = [executor.submit(run_sim, dataset_id, sim_id) for sim_id in range(start_sim, end_sim)]
-        for f in as_completed(futures):
-            f.result()  # re-raises exceptions instead of silently dropping them
+    client = Client(cluster)
+    
+    futures = [client.submit(run_sim, dataset_id, sim_id) for sim_id in range(start_sim, end_sim)]
+    client.gather(futures)
+
+    client.close()
+    cluster.close()
     
