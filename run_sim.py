@@ -25,10 +25,10 @@ r_sun = u.Rsun.to(u.AU)
 
 def get_params(method, sim_id):
     if method == 'grid':
-        n_sigma, n_h, n_m = 30, 30, 16  # product equals total sim count
+        n_sigma, n_h, n_m = 30, 30, 12  # product equals total sim count
 
         # m_em_vals  = np.logspace(np.log10(1e-8), np.log10(1e-1), n_m)
-        m_em_vals  = np.array([1e-8, 5e-8, 1e-7, 5e-7, 1e-6, 5e-6, 1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2, 1e-1, 5e-1]) # [m_earth]
+        m_em_vals  = np.array([1e-6, 5e-6, 1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2, 1e-1, 5e-1]) # [m_earth]
         h_vals     = np.logspace(np.log10(0.01), np.log10(0.10), n_h)
         sigma_vals = np.logspace(np.log10(170), np.log10(17000), n_sigma)
 
@@ -97,9 +97,8 @@ def run_sim(dataset_id, sim_id):
     years = 2*tau_a # Set to 2*tau_a for 1 migrating planet, 6*tau_pl for 3 migrating planets
     n_out = 50
 
-    if years > 2500000: # 2500 kyr (cutoff for ~35 hours of runtime on Midway)
-        print(f"Skipping sim {sim_id} due to long runtime: years = {years:.2e})")
-        # print(f"Skipping sim {sim_id}")
+    if years <= 2500000: # 2500 kyr (cutoff for ~35 hours of runtime on Midway)
+        # print(f"Skipping sim {sim_id} due to long runtime: years = {years:.2e})")
         return # Skip this sim as it takes too long to run
     
     integrator = 'trace'
@@ -148,7 +147,7 @@ if __name__ == "__main__":
     # Job number passed from terminal line (or sbatch)
     job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
 
-    sims_per_job = 144
+    sims_per_job = 108
     start_sim = job_id * sims_per_job
     end_sim = start_sim + sims_per_job
     
