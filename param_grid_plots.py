@@ -516,8 +516,8 @@ outcomes = pd.read_hdf(f"dfs/outcomes{dataset_id}_{snapshot}.h5", key="df") # Lo
 outcomes['scattered (%)'] = outcomes["em_surv_rate (%)"] - 100*outcomes["embryos_inside"]/6
 outcomes['accreted (%)'] = 100 - outcomes["em_surv_rate (%)"]
 
-plot_param_grid_multi(outcomes, "embryos_inside", "Embryos between two planets", ncols=3, show_text=False, x_tick_step=2, y_tick_step=2)
-# plot_param_grid_multi(outcomes, "em_surv_rate (%)", "Total embryos survived (%)", ncols=3, show_text=False, x_tick_step=2, y_tick_step=2)
+# plot_param_grid_multi(outcomes, "embryos_inside", "Embryos between two planets", ncols=3, show_text=False, x_tick_step=2, y_tick_step=2)
+plot_param_grid_multi(outcomes, "em_surv_rate (%)", "Total embryos survived (%)", ncols=2, show_text=False, x_tick_step=3, y_tick_step=2)
 # plot_param_grid_multi(outcomes, "scattered (%)", "Embryos scattered (%)", ncols=3, show_text=False, x_tick_step=2, y_tick_step=2)
 # plot_param_grid_multi(outcomes, "accreted (%)", "Embryos accreted (%)", ncols=3, show_text=False, x_tick_step=2, y_tick_step=2)
-plot_param_grid_multi(outcomes, "sim_id", "Sim ID", ncols=3, x_tick_step=2, y_tick_step=2)
+plot_param_grid_multi(outcomes, "sim_id", "Sim ID", ncols=2, x_tick_step=3, y_tick_step=2)
