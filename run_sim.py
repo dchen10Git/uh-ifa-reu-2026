@@ -64,7 +64,7 @@ def run_sim(dataset_id, sim_id):
     num_pl, num_em, num_ptsml = 2, 20, 0
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
-    method = 'manual' # set to grid, manual, or random
+    method = 'grid' # set to grid, manual, or random
     Sigma_1au, h_1au, m_em = get_params(method, sim_id)
     
     # Setting up em/ptsml disk
@@ -99,6 +99,7 @@ def run_sim(dataset_id, sim_id):
 
     if years > 2500000: # 2500 kyr (cutoff for ~35 hours of runtime on Midway)
         print(f"Skipping sim {sim_id} due to long runtime: years = {years:.2e})")
+        # print(f"Skipping sim {sim_id}")
         return # Skip this sim as it takes too long to run
     
     integrator = 'trace'
