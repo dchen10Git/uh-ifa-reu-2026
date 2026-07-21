@@ -39,7 +39,7 @@ def get_params(method, sim_id):
         Sigma_1au = Sigma_grid.ravel()[sim_id]
     
     elif method == 'manual':
-        Sigma_1au, h_1au, m_em = 17000, 0.01, 1e-4
+        Sigma_1au, h_1au, m_em = 8000, 0.06, 1e-4
         
     elif method == 'random':
         rng = np.random.default_rng(sim_id)
@@ -53,13 +53,8 @@ def run_sim(dataset_id, sim_id):
     base_dir = Path.cwd()
     file_path = base_dir.parent / "sim_results" / f"dataset{dataset_id}" / f"sim{sim_id}.h5"
     
-    try:
-        saved_sim = reb_sims.load_simulation_run(file_path)
-    except FileNotFoundError:
-        saved_sim = None
-    
-    if saved_sim:
-        print(f"Sim {sim_id} already exists. Skipping.")
+    if (base_dir.parent / f"sim_results/dataset{dataset_id}" / f"sim{sim_id}.h5").exists():
+        # print(f"Sim {sim_id} already exists. Skipping.")
         return
     
     # === PARAMETERS ===
@@ -70,14 +65,15 @@ def run_sim(dataset_id, sim_id):
         "r_vals": [10, 10, 10] # [r_earth]; younger planets are puffier
     }
 
-    num_pl, num_em, num_ptsml = 2, 20, 0
+    num_pl, num_em, num_ptsml = 2, 10, 0
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
-    method = 'grid' # set to grid, manual, or random
+    method = 'manual' # set to grid, manual, or random
     Sigma_1au, h_1au, m_em = get_params(method, sim_id)
     
     # Setting up em/ptsml disk
-    r_em = (m_em)**(1/3) # [r_earth]; assuming density same as Earth
+    # r_em = (m_em)**(1/3) # [r_earth]; assuming density same as Earth
+    r_em = (1e-10)**(1/3) # [r_earth]; assuming density same as Earth
     m_ptsml = 0.0033 # [m_earth]
     r_ptsml = (100*1e5/AU)/r_earth # 100 km in [r_earth]
     small_body_a_vals = np.linspace(0.3, 0.8, num_em+num_ptsml) # equally spaced locations in disk range
@@ -106,16 +102,18 @@ def run_sim(dataset_id, sim_id):
     years = 2*tau_a # Set to 2*tau_a for 1 migrating planet, 6*tau_pl for 3 migrating planets
     n_out = 50
 
-    if years > 2500000: # 2500 kyr (cutoff for ~35 hours of runtime on Midway)
+    # if years > 2500000: # 2500 kyr (cutoff for ~35 hours of runtime on Midway)
         # print(f"Skipping sim {sim_id} due to long runtime: years = {years:.2e})")
-        return # Skip this sim as it takes too long to run
+        # return # Skip this sim as it takes too long to run
     
     integrator = 'trace'
     embryos_active = False # if False, will still interact with planets (but not with other embryos)
     end_when_no_ems = True
     tau_dissipation = None # set to None for no disk dissipation, or a number for disk dissipation timescale [yr] (e.g. tau_a)
 
-    parameters = {"m_vals": m_vals,
+    # Set parameters
+    parameters = {
+                  "m_vals": m_vals,
                   "m_star": m_star,
                   "r_vals": r_vals,
                   "r_star": r_star,
@@ -144,19 +142,19 @@ def run_sim(dataset_id, sim_id):
     
     # Sim integration!
     try:
-        reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, years, n_out, print_step=False)
+        reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, years, n_out, print_step=True)
     except Exception as e:
         print(f"Sim {sim_id} | Unexpected error: {e}")
         # raise # Use this for debug traceback, otherwise turn off when multiprocessing
         return # Allow continuation of other sims
     
 if __name__ == "__main__":
-    dataset_id = 2
+    dataset_id = 4
     
     # Job number passed from terminal line (or sbatch)
     job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
 
-    sims_per_job = 108
+    sims_per_job = 5
     start_sim = job_id * sims_per_job
     end_sim = start_sim + sims_per_job
     

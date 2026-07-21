@@ -1,13 +1,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 import astropy.units as u
 import rebound
-from timescales import tau_t1_mig, tau_gas
+from timescales import get_ta_te
 import warnings
 warnings.filterwarnings('ignore')
 
-from helpers import plot_prettier
-plot_prettier()
+from helpers import plot_prettier_lite
+plot_prettier_lite(300)
 
 AU = u.AU.to(u.cm)    
 G = 4*np.pi**2 # in yr, AU, Msun
@@ -20,12 +21,12 @@ r_sun = u.Rsun.to(u.AU)
 # fixed disk / star parameters for this study
 m_star = 1.0
 r_star = 1.5 * r_sun
-Sigma_1au = 3400
-h_1au = 0.06
+Sigma_1au = 1700
+h_1au = 0.03
 alpha = 1
 beta = 0
 
-base_params = {
+parameters = {
     "m_star": m_star,
     "r_star": r_star,
     "Sigma_1au": Sigma_1au,
@@ -33,37 +34,26 @@ base_params = {
     "alpha": alpha,
     "beta": beta,
     "ide_position": 0.1,
-    "ide_width": 0.1 * h_1au**beta,
+    "ide_width": h_1au
 }
 
 # grid
 n_a, n_m = 500, 100
-a_grid = np.logspace(np.log10(0.09), np.log10(1), n_a)   # AU
-m_grid = np.logspace(-10, -1, n_m)                        # m_earth
+a_grid = np.logspace(np.log10(0.10), np.log10(1), n_a)   # [AU]
+m_grid = np.logspace(-7, -1, n_m)                       # [m_earth]
 
 tau_mig = np.full((n_m, n_a), np.nan)
 tau_drag = np.full((n_m, n_a), np.nan)
 
-def make_particle(m_e, a):
-    r = m_e**(1/3) * r_earth   # earth-like bulk density
-    m = m_e * m_earth
-    sim = rebound.Simulation()
-    sim.units = ('AU', 'yr', 'Msun')
-    sim.add(m=m_star, r=r_star, hash='star')
-    sim.add(m=m, r=r, a=a)
-    return sim.particles[1], m, r
+get_ta_te
 
 for i, m_e in enumerate(m_grid):
+    r_e = (m_e)**(1/3) * r_earth # [AU]
+
     for j, a in enumerate(a_grid):
-        p, m, r = make_particle(m_e, a)
-        params = dict(base_params)
-        params["m_vals"] = np.array([m])
-        params["a_vals"] = np.array([a])
-        params["r_vals"] = np.array([r])
-
-        ta_mig = np.array(tau_t1_mig(p, params))[0]
-        ta_drag = np.array(tau_gas(p, params))[0]
-
+        ta_mig = np.array(get_ta_te(parameters, m_star, m_e*m_earth, r_e, a, tau='mig', ide=False))[0]
+        ta_drag = np.array(get_ta_te(parameters, m_star, m_e*m_earth, r_e, a, tau='gas', ide=False))[0]
+        
         tau_mig[i, j] = abs(ta_mig)
         tau_drag[i, j] = abs(ta_drag)
         
@@ -118,9 +108,9 @@ vmax = np.nanmax([np.log10(tau_mig), np.log10(tau_drag), np.log10(combined)])
 # Contours
 contour_levels = np.arange(np.floor(vmin), np.ceil(vmax) + 1)
 
-fig3, axes = plt.subplots(1, 3, figsize=(8, 3), sharey=True)
+fig3, axes = plt.subplots(1, 3, figsize=(8, 3.5), sharey=True)
 
-titles = [r"$\tau_{a, \rm Type \,I}$ [yr]", r"$\tau_{a, \rm gas \,drag}$ [yr]", "Combined"]
+titles = [r"$\tau_{a, \rm Type \,I}$ (yr)", r"$\tau_{a, \rm gas \,drag}$ (yr)", "Combined (yr)"]
 
 for ax, data, title in zip(axes, [tau_mig, tau_drag, combined], titles):
     c = ax.pcolormesh(a_grid, m_grid, np.log10(data), cmap="viridis",
@@ -150,4 +140,36 @@ cbar_ax = fig3.add_axes([0.90, 0.115, 0.02, 0.765])
 cb = fig3.colorbar(c, cax=cbar_ax)
 cb.set_label(r"$\log_{10}(\tau)$ [yr]")
 
+plt.show()
+
+
+# === Only combined ===
+
+vmin = np.nanmin(np.log10(combined))
+vmax = np.nanmax(np.log10(combined))
+contour_levels = np.arange(np.floor(vmin), np.ceil(vmax) + 1)
+
+fig4, ax = plt.subplots(figsize=(3.6, 3.2))
+
+title = rf"Combined $\tau_a$ ($\Sigma_0$: {Sigma_1au:.0f} g/cm$^2$, $h_0$: {h_1au:.3f})"
+
+c = ax.pcolormesh(a_grid, m_grid, np.log10(combined), cmap="viridis", shading="auto", vmin=vmin, vmax=vmax,)
+
+cs = ax.contour(a_grid, m_grid, np.log10(data), levels=contour_levels, colors="white", linewidths=0.8, alpha=0.8,)
+
+ax.clabel(cs, fmt=r"$10^{%d}$", fontsize=8)
+
+ax.set_xscale("log")
+ax.set_yscale("log")
+ax.set_xlabel("a [AU]")
+ax.set_ylabel(r"m [$M_\oplus$]")
+ax.set_title(title)
+
+# Create a colorbar axis attached to the main axes
+divider = make_axes_locatable(ax)
+cax = divider.append_axes("right", size="4%", pad=0.08)
+
+cb = fig4.colorbar(c, cax=cax)
+cb.set_label(r"$\log_{10}(\tau)$ [yr]")
+plt.tight_layout()
 plt.show()

@@ -341,8 +341,8 @@ FACET_LABELS = {
 
 def _facet_title(facet_col, fv):
     if facet_col in FACET_LABELS:
-        exponent = int(np.log10(fv))
-        return rf"${FACET_LABELS[facet_col]}$ = $10^{{{exponent}}} \,m_\oplus$"
+        # exponent = int(np.log10(fv))
+        return rf"${FACET_LABELS[facet_col]}$ = {fv}$\,m_\oplus$"
     return f"{facet_col} = {fv:.2g}"
 
 def plot_param_grid_multi(outcomes, value_col, label, facet_col="m_em",
@@ -410,6 +410,7 @@ def plot_param_grid_multi(outcomes, value_col, label, facet_col="m_em",
 
         x_vals = np.sort(subset[x_col].unique())
         y_vals = np.sort(subset[y_col].unique())
+
         values = get_grid(subset, x_col, y_col, value_col, x_vals, y_vals, aggfunc=_mode_agg)
 
         if is_bool:
@@ -473,7 +474,7 @@ def plot_param_grid_multi(outcomes, value_col, label, facet_col="m_em",
         # Inset facet label instead of a title (a title would overlap the
         # panel above it now that hspace is 0)
         ax.text(0.03, 0.97, _facet_title(facet_col, fv), transform=ax.transAxes,
-                 ha="left", va="top", fontsize=10,
+                 ha="left", va="top", fontsize=8,
                  bbox=dict(boxstyle="round,pad=0.2", facecolor="white", alpha=0.75, linewidth=0))
 
         # Spine linewidth controls how visible the shared border line is
@@ -503,21 +504,27 @@ def plot_param_grid_multi(outcomes, value_col, label, facet_col="m_em",
         cbar.set_label(label)
     plt.show()
 
-assert len(sys.argv) == 2 or len(sys.argv) == 3
-dataset_id = sys.argv[1]
+if __name__ == "__main__":
+    assert len(sys.argv) == 2 or len(sys.argv) == 3
+    dataset_id = sys.argv[1]
 
-if len(sys.argv) == 2:
-    snapshot = -1
-else:
-    snapshot = int(sys.argv[2])
-outcomes = pd.read_hdf(f"dfs/outcomes{dataset_id}_{snapshot}.h5", key="df") # Load data
+    if len(sys.argv) == 2:
+        snapshot = -1
+    else:
+        snapshot = int(sys.argv[2])
+    outcomes = pd.read_hdf(f"dfs/outcomes{dataset_id}_{snapshot}.h5", key="df") # Load data
 
-# outcomes = outcomes[outcomes['m_em'] <= 0.1] # remove m_em = 1 sims
-outcomes['scattered (%)'] = outcomes["em_surv_rate (%)"] - 100*outcomes["embryos_inside"]/6
-outcomes['accreted (%)'] = 100 - outcomes["em_surv_rate (%)"]
+    outcomes = outcomes[outcomes['m_em'] <= 0.1] # this prevents the code from breaking
+    outcomes['scattered (%)'] = outcomes["em_surv_rate (%)"] - 100*outcomes["embryos_inside"]/6
+    outcomes['accreted (%)'] = 100 - outcomes["em_surv_rate (%)"]
 
-# plot_param_grid_multi(outcomes, "embryos_inside", "Embryos between two planets", ncols=3, show_text=False, x_tick_step=2, y_tick_step=2)
-plot_param_grid_multi(outcomes, "em_surv_rate (%)", "Total embryos survived (%)", ncols=2, show_text=False, x_tick_step=3, y_tick_step=2)
-# plot_param_grid_multi(outcomes, "scattered (%)", "Embryos scattered (%)", ncols=3, show_text=False, x_tick_step=2, y_tick_step=2)
-# plot_param_grid_multi(outcomes, "accreted (%)", "Embryos accreted (%)", ncols=3, show_text=False, x_tick_step=2, y_tick_step=2)
-plot_param_grid_multi(outcomes, "sim_id", "Sim ID", ncols=2, x_tick_step=3, y_tick_step=2)
+    ncols = 4
+    x_tick_step = 3
+    y_tick_step = 3
+
+    # plot_param_grid_multi(outcomes, "embryos_inside", "Embryos between two planets", show_text=False, ncols=ncols, x_tick_step=x_tick_step, y_tick_step=y_tick_step)
+    # plot_param_grid_multi(outcomes, "em_surv_rate (%)", "Total embryos survived (%)", show_text=False, ncols=ncols, x_tick_step=x_tick_step, y_tick_step=y_tick_step)
+    # plot_param_grid_multi(outcomes, "resonant_embryos", "Resonant embryos", show_text=False, ncols=ncols, x_tick_step=x_tick_step, y_tick_step=y_tick_step)
+    # plot_param_grid_multi(outcomes, "scattered (%)", "Embryos scattered (%)", show_text=False, ncols=ncols, x_tick_step=x_tick_step, y_tick_step=y_tick_step)
+    # plot_param_grid_multi(outcomes, "accreted (%)", "Embryos accreted (%)", show_text=False, ncols=ncols, x_tick_step=x_tick_step, y_tick_step=y_tick_step)
+    plot_param_grid_multi(outcomes, "sim_id", "Sim ID", ncols=ncols, x_tick_step=x_tick_step, y_tick_step=y_tick_step)

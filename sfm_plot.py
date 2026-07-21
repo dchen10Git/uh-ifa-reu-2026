@@ -32,6 +32,7 @@ Units, confirmed against rebound_sims.py / run_sim.py:
 """
 
 from pathlib import Path
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy import units as u
@@ -104,15 +105,15 @@ def build_sfm_inputs(dataset_id, sim_id, name1, name2, base_dir=None, snapshot=N
 def plot_delta_criterion(dataset_id, sim_id, name1, name2, base_dir=None, snapshot=None):
     inp = build_sfm_inputs(dataset_id, sim_id, name1, name2, base_dir, snapshot=snapshot)
 
-    # NOTE: Only first-order MMRs are considered for this implementation. Higher-orders MMRs will not be plotted correctly.
+    # NOTE: Only first-order MMRs are considered for this implementation. Higher-orders MMRs will not be plotted correctly and will raise an error.
     P_ratio = np.nanmedian(inp['P2']) / np.nanmedian(inp['P1'])
     p, order, dist = get_nearest_resonance(P_ratio, second_order=False, kmax=12, difference_order=0.2)
     print(f"{inp['name1']} / {inp['name2']}: P2/P1 = {P_ratio:.4f}, "
-          f"nearest first-order resonance p = {p} ({p}:{p + 1}), distance = {dist:.4f}")
+          f"nearest first-order resonance p = {p} ({p+1}:{p}), distance = {dist:.4f}")
     
     p_actual, q_actual = mmr_id.find_best_twoBR_pq(inp['m_star'], inp['b'], inp['c'], snapshot=-1)
     if p_actual - q_actual != 1:
-        raise ValueError(f"Detected resonance order {p_actual - q_actual} != 1; only first-order MMRs are supported for this plotting code.")
+        raise ValueError(f"Detected resonance ({p_actual}:{q_actual}), order {p_actual - q_actual} != 1; only first-order MMRs are supported for this plotting code.")
 
     fig, ax = plt.subplots(figsize=(9, 9))
     plot_ell(fig, ax, inp['e1'], inp['e2'], inp['vp1'], inp['vp2'],
@@ -126,8 +127,11 @@ def plot_delta_criterion(dataset_id, sim_id, name1, name2, base_dir=None, snapsh
     return fig, ax
 
 if __name__ == '__main__':
-    dataset_id = 1
-    sim_id = 1295
+    assert len(sys.argv) == 3
+    dataset_id = sys.argv[1]
+    sim_id = sys.argv[2]
+    embryo_name = 'embryo 0'
     
-    plot_delta_criterion(dataset_id, sim_id, name1='planet b', name2='embryo 5', snapshot=np.arange(-50, 0)) 
-    plot_delta_criterion(dataset_id, sim_id, name1='embryo 5', name2='planet c', snapshot=np.arange(-50, 0))
+    # plot_delta_criterion(dataset_id, sim_id, name1='planet b', name2='planet c', snapshot=np.arange(-5, 0)) 
+    plot_delta_criterion(dataset_id, sim_id, name1='planet b', name2=embryo_name, snapshot=np.arange(-5, 0)) 
+    plot_delta_criterion(dataset_id, sim_id, name1=embryo_name, name2='planet c', snapshot=np.arange(-5, 0))

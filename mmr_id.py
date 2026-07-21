@@ -58,7 +58,7 @@ def twoBR_angle(b, c, p, q, pomega='mixed'):
     elif pomega == 'c': 
         return q*b['l'] - p*c['l'] + (p-q)*c['pomega']
     elif pomega == 'mixed':
-        f, g = fg_lib[(p, q)]
+        f, g = fg_lib[(p, p-q)]
         pomega_hat = np.arctan2((f*b['e']*np.sin(b['pomega']) + g*c['e']*np.sin(c['pomega'])), (f*b['e']*np.cos(b['pomega']) + g*c['e']*np.cos(c['pomega'])))
         return q*b['l'] - p*c['l'] + (p-q)*pomega_hat
     else:
