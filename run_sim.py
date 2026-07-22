@@ -53,9 +53,9 @@ def run_sim(dataset_id, sim_id):
     base_dir = Path.cwd()
     file_path = base_dir.parent / "sim_results" / f"dataset{dataset_id}" / f"sim{sim_id}.h5"
     
-    # if (base_dir.parent / f"sim_results/dataset{dataset_id}" / f"sim{sim_id}.h5").exists():
-    #     # print(f"Sim {sim_id} already exists. Skipping.")
-    #     return
+    if (base_dir.parent / f"sim_results/dataset{dataset_id}" / f"sim{sim_id}.h5").exists():
+        print(f"Sim {sim_id} already exists. Skipping.")
+        return
     
     # === PARAMETERS ===
     planets = {
@@ -72,7 +72,6 @@ def run_sim(dataset_id, sim_id):
     Sigma_1au, h_1au, m_em = get_params(method, sim_id)
     
     if m_em not in [1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1]:
-        print(f"Sim {sim_id} already exists. Skipping.")
         return
     
     # Setting up em/ptsml disk
@@ -105,8 +104,9 @@ def run_sim(dataset_id, sim_id):
     years = 2*tau_a # Set to 2*tau_a for 1 migrating planet, 6*tau_pl for 3 migrating planets
     n_out = 50
 
-    if years > 2000000: # (cutoff for ~35 hours of runtime on Midway is about 2000 kyr)
-        print(f"Skipping sim {sim_id} due to long runtime: years = {years:.2e})")
+    if years > 500000: # (cutoff for ~35 hours of runtime on Midway is about 500 kyr)
+        # print(f"Years = {years:.2e} for sim {sim_id}.")
+        # print(f"Skipping sim {sim_id} due to long runtime: years = {years:.2e})")
         return # Skip this sim as it takes too long to run
     
     integrator = 'trace'
