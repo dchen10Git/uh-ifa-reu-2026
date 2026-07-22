@@ -206,16 +206,6 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, n_out, particle_fa
                 continue
             
             orb = rock.orbit(primary=star)
-        
-            if orb.a < 0.01 or orb.a > 100:
-                fate = 'fell into star (d < 0.01)' if orb.a < 0.01 else 'ejected from system (d > 100)'
-                particle_fate[name] = fate
-                hist["a"][i,j], hist["e"][i,j], hist["inc"][i,j] = orb.a, orb.e, orb.inc
-                hist["P"][i,j], hist["l"][i,j], hist["pomega"][i,j] = orb.P, orb.l, orb.pomega
-                sim.remove(hash=name)
-                removed_names.add(name)
-                print(f"{name} removed; {fate}")
-                continue
             
             # Update damping timescales
             tau_a, tau_e, tau_i = np.nan, np.nan, np.nan
@@ -236,6 +226,18 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, n_out, particle_fa
                 hist["tau_a"][data_i,j], hist["tau_e"][data_i,j], hist["tau_i"][data_i,j] = tau_a, tau_e, tau_i
                 hist["a"][data_i,j], hist["e"][data_i,j], hist["inc"][data_i,j] = orb.a, orb.e, orb.inc
                 hist["P"][data_i,j], hist["l"][data_i,j], hist["pomega"][data_i,j] = orb.P, orb.l, orb.pomega
+                
+                # Also check whether rock should be removed and save data if so
+                if orb.a < 0.01 or orb.a > 100:
+                    fate = 'fell into star (d < 0.01)' if orb.a < 0.01 else 'ejected from system (d > 100)'
+                    particle_fate[name] = fate
+                    hist["a"][i,j], hist["e"][i,j], hist["inc"][i,j] = orb.a, orb.e, orb.inc
+                    hist["P"][i,j], hist["l"][i,j], hist["pomega"][i,j] = orb.P, orb.l, orb.pomega
+                    sim.remove(hash=name)
+                    removed_names.add(name)
+                    # print(f"{name} removed; {fate}")
+                    continue
+                
                 # Print step number
                 if print_step:
                     print(f"Sim {sim_id:<2d} | Step {data_i} of {n_out}               ", end="\r", flush=True)
@@ -372,54 +374,55 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, n_out
     sim.testparticle_type = 1 # 1: Test particles will not interact with each other, but will interact with planets
         
     # === Collision Handling ===
-    sim.collision = "line" # "direct" might miss too many collisions
-    
     # Tracking stats
     collision_log = []
     particle_fate = {name: "alive" for name in rock_names}
     
-    def collision_resolve(sim_pointer, collided_particles_index):
-        sim = sim_pointer.contents
-        ps = sim.particles
+    if parameters['collisions']:
+        sim.collision = "line" # "direct" might miss too many collisions
 
-        i = collided_particles_index.p1
-        j = collided_particles_index.p2
+        def collision_resolve(sim_pointer, collided_particles_index):
+            sim = sim_pointer.contents
+            ps = sim.particles
 
-        # Determine survivor (bigger particle) and victim (smaller particle)
-        if ps[i].m >= ps[j].m:
-            survivor_idx = i
-            victim_idx = j
-            remove_code = 2
-        else:
-            survivor_idx = j
-            victim_idx = i
-            remove_code = 1
+            i = collided_particles_index.p1
+            j = collided_particles_index.p2
+
+            # Determine survivor (bigger particle) and victim (smaller particle)
+            if ps[i].m >= ps[j].m:
+                survivor_idx = i
+                victim_idx = j
+                remove_code = 2
+            else:
+                survivor_idx = j
+                victim_idx = i
+                remove_code = 1
+                
+            survivor_name = hash_to_name[int(ps[survivor_idx].hash.value)]
+            victim_name = hash_to_name[int(ps[victim_idx].hash.value)]
+                        
+            # Log collision
+            collision_log.append({
+                "time": sim.t,
+                "survivor": survivor_name,
+                "victim": victim_name,
+                "victim mass": ps[victim_idx].m,
+            })
+
+            # Track fate
+            particle_fate[victim_name] = f"accreted by {survivor_name}"
+
+            # Merge
+            ps[survivor_idx] = (ps[survivor_idx] * ps[survivor_idx].m + ps[victim_idx] * ps[victim_idx].m) / (ps[survivor_idx].m + ps[victim_idx].m)
+            ps[survivor_idx].m = ps[survivor_idx].m + ps[victim_idx].m
+            ps[survivor_idx].r = (ps[survivor_idx].r**3 + ps[victim_idx].r**3)**(1/3)
+                
+            # print(f"Collision; survivor: {survivor_name}; victim: {victim_name}")
             
-        survivor_name = hash_to_name[int(ps[survivor_idx].hash.value)]
-        victim_name = hash_to_name[int(ps[victim_idx].hash.value)]
-                    
-        # Log collision
-        collision_log.append({
-            "time": sim.t,
-            "survivor": survivor_name,
-            "victim": victim_name,
-            "victim mass": ps[victim_idx].m,
-        })
-
-        # Track fate
-        particle_fate[victim_name] = f"accreted by {survivor_name}"
-
-        # Merge
-        ps[survivor_idx] = (ps[survivor_idx] * ps[survivor_idx].m + ps[victim_idx] * ps[victim_idx].m) / (ps[survivor_idx].m + ps[victim_idx].m)
-        ps[survivor_idx].m = ps[survivor_idx].m + ps[victim_idx].m
-        ps[survivor_idx].r = (ps[survivor_idx].r**3 + ps[victim_idx].r**3)**(1/3)
-            
-        # print(f"Collision; survivor: {survivor_name}; victim: {victim_name}")
+            return remove_code
         
-        return remove_code
-    
-    sim.collision_resolve = collision_resolve 
-    # sim.collision_resolve = 'merge' # can use merge or halt for debugging
+        sim.collision_resolve = collision_resolve 
+        # sim.collision_resolve = 'merge' # can use merge or halt for debugging
 
     # Move to center of momentum
     sim.move_to_com()

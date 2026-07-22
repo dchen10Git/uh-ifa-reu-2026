@@ -38,8 +38,10 @@ def plot_prettier(dpi=200, fontsize=8, usetex=False):
         plt.rcParams['font.family'] = 'serif'
         plt.rcParams['font.serif'] = ['Times New Roman'] + plt.rcParams['font.serif']
         
-def plot_prettier_lite(dpi=200):
-    plt.rc("savefig", dpi=dpi)
+def plot_prettier_lite(fig_dpi=200, save_dpi=500, fontsize=8):
+    plt.rcParams['figure.dpi']= fig_dpi
+    plt.rc("savefig", dpi=save_dpi)
+    plt.rc('font', size=fontsize)
     plt.rcParams['mathtext.fontset'] = 'cm'
     plt.rcParams['font.family'] = 'serif'
     plt.rcParams['font.serif'] = ['Times New Roman'] + plt.rcParams['font.serif']

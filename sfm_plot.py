@@ -130,8 +130,8 @@ if __name__ == '__main__':
     assert len(sys.argv) == 3
     dataset_id = sys.argv[1]
     sim_id = sys.argv[2]
-    embryo_name = 'embryo 0'
+    embryo_name = 'embryo 9'
     
     # plot_delta_criterion(dataset_id, sim_id, name1='planet b', name2='planet c', snapshot=np.arange(-5, 0)) 
-    plot_delta_criterion(dataset_id, sim_id, name1='planet b', name2=embryo_name, snapshot=np.arange(-5, 0)) 
-    plot_delta_criterion(dataset_id, sim_id, name1=embryo_name, name2='planet c', snapshot=np.arange(-5, 0))
+    plot_delta_criterion(dataset_id, sim_id, name1='planet b', name2=embryo_name, snapshot=np.arange(-3, 0)) 
+    plot_delta_criterion(dataset_id, sim_id, name1=embryo_name, name2='planet c', snapshot=np.arange(-3, 0))

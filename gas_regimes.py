@@ -8,7 +8,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 from helpers import plot_prettier_lite
-plot_prettier_lite(300)
+plot_prettier_lite(save_dpi=500, fontsize=7)
 
 AU = u.AU.to(u.cm)    
 G = 4*np.pi**2 # in yr, AU, Msun
@@ -40,27 +40,32 @@ parameters = {
 # grid
 n_a, n_m = 500, 100
 a_grid = np.logspace(np.log10(0.10), np.log10(1), n_a)   # [AU]
-m_grid = np.logspace(-7, -1, n_m)                       # [m_earth]
+m_grid = np.logspace(-8, -0.5, n_m)                       # [m_earth]
 
-tau_mig = np.full((n_m, n_a), np.nan)
-tau_drag = np.full((n_m, n_a), np.nan)
+tau_a_mig = np.full((n_m, n_a), np.nan)
+tau_a_drag = np.full((n_m, n_a), np.nan)
 
-get_ta_te
+tau_e_mig = np.full((n_m, n_a), np.nan)
+tau_e_drag = np.full((n_m, n_a), np.nan)
 
 for i, m_e in enumerate(m_grid):
     r_e = (m_e)**(1/3) * r_earth # [AU]
 
     for j, a in enumerate(a_grid):
-        ta_mig = np.array(get_ta_te(parameters, m_star, m_e*m_earth, r_e, a, tau='mig', ide=False))[0]
-        ta_drag = np.array(get_ta_te(parameters, m_star, m_e*m_earth, r_e, a, tau='gas', ide=False))[0]
+        ts_mig = np.array(get_ta_te(parameters, m_star, m_e*m_earth, r_e, a, tau='mig', ide=False))
+        ts_gas = np.array(get_ta_te(parameters, m_star, m_e*m_earth, r_e, a, tau='gas', ide=False))
         
-        tau_mig[i, j] = abs(ta_mig)
-        tau_drag[i, j] = abs(ta_drag)
+        tau_a_mig[i, j] = abs(ts_mig[0])
+        tau_a_drag[i, j] = abs(ts_gas[0])
         
-combined = 1/(1/tau_mig + 1/tau_drag)
+        tau_e_mig[i, j] = abs(ts_mig[1])
+        tau_e_drag[i, j] = abs(ts_gas[1])
+        
+combined_a = 1/(1/tau_a_mig + 1/tau_a_drag)
+combined_e = 1/(1/tau_e_mig + 1/tau_e_drag)
 
 # ratio > 0 (log10) means drag timescale longer -> migration dominates
-ratio = np.log10(tau_drag / tau_mig)
+ratio = np.log10(tau_a_drag / tau_a_mig)
 
 fig, ax = plt.subplots(figsize=(5, 3))
 c = ax.pcolormesh(a_grid, m_grid, ratio, cmap="RdBu_r", shading="auto",
@@ -102,8 +107,9 @@ plt.show()
 
 # === Colormaps of individual timescales ===
 
-vmin = np.nanmin([np.log10(tau_mig), np.log10(tau_drag), np.log10(combined)])
-vmax = np.nanmax([np.log10(tau_mig), np.log10(tau_drag), np.log10(combined)])
+
+vmin = np.nanmin([np.log10(tau_a_mig), np.log10(tau_a_drag), np.log10(combined_a)])
+vmax = np.nanmax([np.log10(tau_a_mig), np.log10(tau_a_drag), np.log10(combined_a)])
 
 # Contours
 contour_levels = np.arange(np.floor(vmin), np.ceil(vmax) + 1)
@@ -112,7 +118,7 @@ fig3, axes = plt.subplots(1, 3, figsize=(8, 3.5), sharey=True)
 
 titles = [r"$\tau_{a, \rm Type \,I}$ (yr)", r"$\tau_{a, \rm gas \,drag}$ (yr)", "Combined (yr)"]
 
-for ax, data, title in zip(axes, [tau_mig, tau_drag, combined], titles):
+for ax, data, title in zip(axes, [tau_a_mig, tau_a_drag, combined_a], titles):
     c = ax.pcolormesh(a_grid, m_grid, np.log10(data), cmap="viridis",
                        shading="auto", vmin=vmin, vmax=vmax)
     
@@ -143,19 +149,48 @@ cb.set_label(r"$\log_{10}(\tau)$ [yr]")
 plt.show()
 
 
-# === Only combined ===
-
-vmin = np.nanmin(np.log10(combined))
-vmax = np.nanmax(np.log10(combined))
+# === Combined a ===
+vmin = np.nanmin(np.log10(combined_a))
+vmax = np.nanmax(np.log10(combined_a))
 contour_levels = np.arange(np.floor(vmin), np.ceil(vmax) + 1)
 
 fig4, ax = plt.subplots(figsize=(3.6, 3.2))
 
-title = rf"Combined $\tau_a$ ($\Sigma_0$: {Sigma_1au:.0f} g/cm$^2$, $h_0$: {h_1au:.3f})"
+title = rf"Combined $\tau_a$ ($\Sigma_0={Sigma_1au:.0f}$ g/cm$^2$, $h_0={h_1au:.3f}$)"
 
-c = ax.pcolormesh(a_grid, m_grid, np.log10(combined), cmap="viridis", shading="auto", vmin=vmin, vmax=vmax,)
+c = ax.pcolormesh(a_grid, m_grid, np.log10(combined_a), cmap="viridis", shading="auto", vmin=vmin, vmax=vmax,)
 
-cs = ax.contour(a_grid, m_grid, np.log10(data), levels=contour_levels, colors="white", linewidths=0.8, alpha=0.8,)
+cs = ax.contour(a_grid, m_grid, np.log10(combined_a), levels=contour_levels, colors="white", linewidths=0.8, alpha=0.8,)
+
+ax.clabel(cs, fmt=r"$10^{%d}$", fontsize=8)
+
+ax.set_xscale("log")
+ax.set_yscale("log")
+ax.set_xlabel("a [AU]")
+ax.set_ylabel(r"m [$M_\oplus$]")
+ax.set_title(title)
+
+# Create a colorbar axis attached to the main axes
+divider = make_axes_locatable(ax)
+cax = divider.append_axes("right", size="4%", pad=0.08)
+
+cb = fig4.colorbar(c, cax=cax)
+cb.set_label(r"$\log_{10}(\tau)$ [yr]")
+plt.tight_layout()
+plt.show()
+
+# === Combined e ===
+vmin = np.nanmin(np.log10(combined_e))
+vmax = np.nanmax(np.log10(combined_e))
+contour_levels = np.arange(np.floor(vmin), np.ceil(vmax) + 1)
+
+fig4, ax = plt.subplots(figsize=(3.6, 3.2))
+
+title = rf"Combined $\tau_e$ ($\Sigma_0={Sigma_1au:.0f}$ g/cm$^2$, $h_0={h_1au:.3f}$)"
+
+c = ax.pcolormesh(a_grid, m_grid, np.log10(combined_e), cmap="viridis", shading="auto", vmin=vmin, vmax=vmax,)
+
+cs = ax.contour(a_grid, m_grid, np.log10(combined_e), levels=contour_levels, colors="white", linewidths=0.8, alpha=0.8,)
 
 ax.clabel(cs, fmt=r"$10^{%d}$", fontsize=8)
 
