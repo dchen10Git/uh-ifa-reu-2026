@@ -57,10 +57,6 @@ def run_sim(dataset_id, sim_id):
     #     # print(f"Sim {sim_id} already exists. Skipping.")
     #     return
     
-    if m_em not in [1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1]:
-        print(f"Sim {sim_id} already exists. Skipping.")
-        return
-    
     # === PARAMETERS ===
     planets = {
         "name": ['planet b', 'planet c', 'planet d'],
@@ -74,6 +70,10 @@ def run_sim(dataset_id, sim_id):
     
     method = 'grid' # set to grid, manual, or random
     Sigma_1au, h_1au, m_em = get_params(method, sim_id)
+    
+    if m_em not in [1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1]:
+        print(f"Sim {sim_id} already exists. Skipping.")
+        return
     
     # Setting up em/ptsml disk
     r_em = (m_em)**(1/3) # [r_earth]; assuming density same as Earth
@@ -105,7 +105,7 @@ def run_sim(dataset_id, sim_id):
     years = 2*tau_a # Set to 2*tau_a for 1 migrating planet, 6*tau_pl for 3 migrating planets
     n_out = 50
 
-    if years > 2000000: # (cutoff for ~35 hours of runtime on Midway is about 2000 kyr)
+    if years <= 2000000: # (cutoff for ~35 hours of runtime on Midway is about 2000 kyr)
         print(f"Skipping sim {sim_id} due to long runtime: years = {years:.2e})")
         return # Skip this sim as it takes too long to run
     
@@ -159,7 +159,7 @@ if __name__ == "__main__":
     # Job number passed from terminal line (or sbatch)
     job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
 
-    sims_per_job = 1
+    sims_per_job = 10800
     start_sim = job_id * sims_per_job
     end_sim = start_sim + sims_per_job
     
