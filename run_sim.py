@@ -53,9 +53,7 @@ def run_sim(dataset_id, sim_id):
     base_dir = Path.cwd()
     file_path = base_dir.parent / "sim_results" / f"dataset{dataset_id}" / f"sim{sim_id}.h5"
     
-    if (base_dir.parent / f"sim_results/dataset{dataset_id}" / f"sim{sim_id}.h5").exists():
-        print(f"Sim {sim_id} already exists. Skipping.")
-        return
+    
     
     # === PARAMETERS ===
     planets = {
@@ -70,9 +68,6 @@ def run_sim(dataset_id, sim_id):
     
     method = 'grid' # set to grid, manual, or random
     Sigma_1au, h_1au, m_em = get_params(method, sim_id)
-    
-    if m_em not in [1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1]:
-        return
     
     # Setting up em/ptsml disk
     r_em = (m_em)**(1/3) # [r_earth]; assuming density same as Earth
@@ -104,14 +99,19 @@ def run_sim(dataset_id, sim_id):
     years = 2*tau_a # Set to 2*tau_a for 1 migrating planet, 6*tau_pl for 3 migrating planets
     n_out = 50
 
-    if years > 500000: # (cutoff for ~35 hours of runtime on Midway is about 500 kyr)
-        # print(f"Years = {years:.2e} for sim {sim_id}.")
-        # print(f"Skipping sim {sim_id} due to long runtime: years = {years:.2e})")
+    # Skip sims if any of the following conditions are met
+    if (base_dir.parent / f"sim_results/dataset{dataset_id}" / f"sim{sim_id}.h5").exists():
+        # print(f"Sim {sim_id} already exists. Skipping.")
+        return
+    if m_em not in [1e-4, 1e-2, 1e-1]:
+        return
+    if years > 2000000: # (cutoff for ~35 hours of runtime on Midway is about 1500 kyr)
+        print(f"Skipping sim {sim_id} due to long runtime: years = {years:.2e})")
         return # Skip this sim as it takes too long to run
     
     integrator = 'trace'
     embryos_active = False # if False, will still interact with planets (but not with other embryos)
-    end_when_no_ems = True # if True, will end the sim when all embryos are accreted or ejected
+    end_when_no_ems = False # if True, will end the sim when all embryos are accreted or ejected
     tau_dissipation = None # set to None for no disk dissipation, or a number for disk dissipation timescale [yr] (e.g. tau_a)
     collisions = True
 

@@ -162,7 +162,7 @@ def draw_param_panel(ax, outcomes, value_col, x_col="Sigma_1au", y_col="h_1au",
     y_edges = _axis_config(y_col)["edges"](y_vals)
 
     # Colormap / norm
-    if "survived" in value_col:
+    if "survived" in value_col or "embryos_inside" in value_col:
         cmap_obj = mcolors.ListedColormap(["#482173", "#2E6F8E", "#29AF7F"])
         norm = mcolors.BoundaryNorm([0.5, 1.5, 2.5, 3.5], cmap_obj.N)
     elif bool_mode == "symbol":
@@ -264,6 +264,9 @@ def plot_param_grid_map(outcomes, value_col, label, x_col="Sigma_1au", y_col="h_
         cbar.ax.minorticks_off()
     elif "survived" in value_col:
         cbar.set_ticks([1, 2, 3])
+    elif "embryos_inside" in value_col:
+        cbar.set_ticks([0, 1, 2, 3])
+        cbar.ax.minorticks_off()
     cbar.ax.tick_params(direction="inout")
     plt.tight_layout()
     plt.show()
@@ -420,13 +423,22 @@ def plot_param_grid_multi(outcomes, value_col, label, facet_col="m_em",
         if is_bool:
             cmap_obj = mcolors.ListedColormap(["#d62728", "#2ca02c"])  # False=red, True=green
             norm = mcolors.BoundaryNorm([-0.5, 0.5, 1.5], cmap_obj.N)
+        elif 'survived' in value_col:
+            cmap_obj = mcolors.ListedColormap(["#482173", "#2E6F8E", "#29AF7F"])
+            norm = mcolors.BoundaryNorm([0.5, 1.5, 2.5, 3.5], cmap_obj.N)
+        elif 'embryos_inside' in value_col:
+            cmap_obj = plt.colormaps['viridis'].resampled(4)
+            norm = mcolors.BoundaryNorm([-0.5, 0.5, 1.5, 2.5, 3.5], cmap_obj.N)
         else:
             cmap_obj = plt.get_cmap(cmap)
             norm = None
+            
+        cmap_obj.set_bad("#D873F1")
 
         mesh = ax.pcolormesh(x_edges, y_edges, values.T, cmap=cmap_obj, norm=norm,
                               vmin=None if norm else vmin, vmax=None if norm else vmax,
                               shading="flat")
+        
 
         if show_text and not is_bool:
             for i, x in enumerate(x_vals):
@@ -473,10 +485,8 @@ def plot_param_grid_multi(outcomes, value_col, label, facet_col="m_em",
 
         # Inset facet label instead of a title (a title would overlap the
         # panel above it now that hspace is 0)
-        ax.text(0.03, 0.97, _facet_title(facet_col, fv), transform=ax.transAxes,
-                 ha="left", va="top", fontsize=8,
-                 bbox=dict(boxstyle="round,pad=0.2", facecolor="white", alpha=0.75, linewidth=0))
-
+        ax.text(0.97, 0.03, _facet_title(facet_col, fv), transform=ax.transAxes,
+                 ha="right", va="bottom", fontsize=10, color='w')
         # Spine linewidth controls how visible the shared border line is
         # between adjacent panels
         for spine in ax.spines.values():
@@ -502,6 +512,11 @@ def plot_param_grid_multi(outcomes, value_col, label, facet_col="m_em",
         cax.set_yticks([])
         cbar = fig.colorbar(mesh, cax=cax, fraction=1.0)
         cbar.set_label(label)
+        
+    if "embryos_inside" in value_col:
+        cbar.set_ticks([0, 1, 2, 3])
+        cbar.ax.minorticks_off()    
+        
     plt.show()
 
 if __name__ == "__main__":
