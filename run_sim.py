@@ -53,8 +53,6 @@ def run_sim(dataset_id, sim_id):
     base_dir = Path.cwd()
     file_path = base_dir.parent / "sim_results" / f"dataset{dataset_id}" / f"sim{sim_id}.h5"
     
-    
-    
     # === PARAMETERS ===
     planets = {
         "name": ['planet b', 'planet c', 'planet d'],
@@ -103,11 +101,11 @@ def run_sim(dataset_id, sim_id):
     if (base_dir.parent / f"sim_results/dataset{dataset_id}" / f"sim{sim_id}.h5").exists():
         # print(f"Sim {sim_id} already exists. Skipping.")
         return
-    if m_em not in [1e-4, 1e-2, 1e-1]:
+    if m_em not in [1e-6, 1e-4, 1e-2, 1e-1]:
         return
-    if years > 2000000: # (cutoff for ~35 hours of runtime on Midway is about 1500 kyr)
-        print(f"Skipping sim {sim_id} due to long runtime: years = {years:.2e})")
-        return # Skip this sim as it takes too long to run
+    if years > 2000000 or years < 5000000: # (cutoff for ~35 hours of runtime on Midway is about 1500 kyr)
+        print(f"Skipping sim {sim_id}: years = {years:.2e})")
+        return
     
     integrator = 'trace'
     embryos_active = False # if False, will still interact with planets (but not with other embryos)
@@ -150,7 +148,7 @@ def run_sim(dataset_id, sim_id):
         reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, years, n_out, print_step=True)
     except Exception as e:
         print(f"Sim {sim_id} | Unexpected error: {e}")
-        raise # Use this for debug traceback, otherwise turn off when multiprocessing
+        # raise # Use this for debug traceback, otherwise turn off when multiprocessing
         return # Allow continuation of other sims
     
 if __name__ == "__main__":

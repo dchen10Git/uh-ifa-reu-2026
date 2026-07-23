@@ -5,7 +5,7 @@
 #SBATCH --mem-per-cpu=2048
 #SBATCH --cpus-per-task=25
 #SBATCH --account=pi-fabrycky
-#SBATCH --array=17,21
+#SBATCH --array=1,9
 echo "Script started."
 echo "Array task: ${SLURM_ARRAY_TASK_ID}"
 
