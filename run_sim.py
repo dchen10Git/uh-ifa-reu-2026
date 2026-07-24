@@ -103,7 +103,7 @@ def run_sim(dataset_id, sim_id):
         return
     if m_em not in [1e-6, 1e-4, 1e-2, 1e-1]:
         return
-    if years > 2000000 or years < 500000: # (cutoff for ~35 hours of runtime on Midway is about 1500 kyr)
+    if years > 1500000 or years < 500000: # (cutoff for ~35 hours of runtime on Midway is about 1500 kyr)
         # print(f"Skipping sim {sim_id}: years = {years:.2e})")
         return
     
