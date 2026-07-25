@@ -8,7 +8,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 from helpers import plot_prettier_lite
-plot_prettier_lite(save_dpi=500, fontsize=7)
+plot_prettier_lite(save_dpi=600, fontsize=9)
 
 AU = u.AU.to(u.cm)    
 G = 4*np.pi**2 # in yr, AU, Msun
@@ -207,4 +207,45 @@ cax = divider.append_axes("right", size="4%", pad=0.08)
 cb = fig4.colorbar(c, cax=cax)
 cb.set_label(r"$\log_{10}(\tau)$ [yr]")
 plt.tight_layout()
+plt.show()
+
+# Line (fixed AU)
+
+a_fix = 0.5  # AU
+j_fix = np.argmin(np.abs(a_grid - a_fix))
+
+fig5, ax = plt.subplots(figsize=(4, 3.2))
+
+ax.plot(m_grid, tau_a_mig[:, j_fix], label=r"$\tau_{a,\rm mig}$", color="tab:red")
+ax.plot(m_grid, tau_a_drag[:, j_fix], label=r"$\tau_{a,\rm gas}$", color="tab:blue")
+ax.plot(m_grid, combined_a[:, j_fix], label="Combined", color="k", ls="--")
+
+ax.set_xscale("log")
+ax.set_yscale("log")
+ax.set_xlabel(r"$M_{\rm em}$ [$M_\oplus$]")
+ax.set_ylabel(r"$\tau_a$ [yr]")
+# ax.set_title(f"a = {a_grid[j_fix]:.2f} AU")
+ax.legend(frameon=False)
+
+fig5.tight_layout()
+plt.show()
+
+# Line (fixed AU)
+
+a_fix = 0.5  # AU
+j_fix = np.argmin(np.abs(a_grid - a_fix))
+
+fig5, ax = plt.subplots(figsize=(4, 3.2))
+
+ax.plot(m_grid, tau_e_mig[:, j_fix], label=r"$\tau_{e,\rm mig}$", color="tab:red")
+ax.plot(m_grid, tau_e_drag[:, j_fix], label=r"$\tau_{e,\rm gas}$", color="tab:blue")
+ax.plot(m_grid, combined_e[:, j_fix], label="Combined", color="k", ls="--")
+
+ax.set_xscale("log")
+ax.set_yscale("log")
+ax.set_xlabel(r"$M_{\rm em}$ [$M_\oplus$]")
+ax.set_ylabel(r"$\tau_e$ [yr]")
+ax.legend(frameon=False)
+
+fig5.tight_layout()
 plt.show()

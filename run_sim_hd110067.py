@@ -25,10 +25,9 @@ r_sun = u.Rsun.to(u.AU)
 
 def get_params(method, sim_id):
     if method == 'grid':
-        n_sigma, n_h, n_m = 30, 30, 12  # product equals total sim count
+        n_sigma, n_h, n_m = 30, 30, 1  # product equals total sim count
 
-        # m_em_vals  = np.logspace(np.log10(1e-8), np.log10(1e-1), n_m)
-        m_em_vals  = np.array([1e-6, 5e-6, 1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2, 1e-1, 5e-7]) # [m_earth]
+        m_em_vals  = np.array([1e-4]) # [m_earth]
         h_vals     = np.logspace(np.log10(0.01), np.log10(0.10), n_h)
         sigma_vals = np.logspace(np.log10(170), np.log10(17000), n_sigma)
 
@@ -39,14 +38,14 @@ def get_params(method, sim_id):
         Sigma_1au = Sigma_grid.ravel()[sim_id]
     
     elif method == 'manual':
-        Sigma_1au, h_1au, m_em = 6000, 0.05, 1e-3
+        Sigma_1au, h_1au = 6000, 0.05
         
     elif method == 'random':
         rng = np.random.default_rng(sim_id)
         Sigma_1au = loguniform.rvs(10**(454/145), 10**(517/145), random_state=rng)
         h_1au = loguniform.rvs(10**(-437/290), 10**(-187/145), random_state=rng) 
     
-    return Sigma_1au, h_1au, m_em
+    return Sigma_1au, h_1au
 
 def run_sim(dataset_id, sim_id):         
     # Set where to save the data
@@ -55,22 +54,24 @@ def run_sim(dataset_id, sim_id):
     
     # === PARAMETERS ===
     planets = {
-        "name": ['planet b', 'planet c', 'planet d'],
-        "m_vals": [5, 5, 5], # [m_earth]
-        "a_vals": [0.11, 1, 1], # [AU]
-        "r_vals": [10, 10, 10] # [r_earth]; younger planets are puffier
+        "name": ['planet b', 'planet c', 'planet d', 'planet e', 'planet f', 'planet g'],
+        "m_vals": [5.7, 6.3, 8.5, 3.9, 5.0, 8.4], # [m_earth]
+        "a_vals": [1, 1, 1, 1, 1, 1], # [AU]
+        # "r_vals": [2.2, 2.4, 2.85, 1.94, 2.6, 2.6] # [r_earth]
+        "r_vals": [10, 10, 10, 10, 10, 10] # [r_earth]; younger planets are puffier
     }
 
-    num_pl, num_em, num_ptsml = 2, 20, 0
+    num_pl, num_em, num_ptsml = 6, 10, 20
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
-    method = 'grid' # set to grid, manual, or random
-    Sigma_1au, h_1au, m_em = get_params(method, sim_id)
+    method = 'manual' # set to grid, manual, or random
+    Sigma_1au, h_1au = get_params(method, sim_id)
     
     # Setting up em/ptsml disk
+    m_em = 0.01 # [m_earth]; ~5 Pluto masses
     r_em = (m_em)**(1/3) # [r_earth]; assuming density same as Earth
-    m_ptsml = 0.0033 # [m_earth]
-    r_ptsml = (100*1e5/AU)/r_earth # 100 km in [r_earth]
+    m_ptsml = 0.0022 # [m_earth]; ~1 Pluto mass
+    r_ptsml = (m_ptsml)**(1/3) # [r_earth]; assuming density same as Earth
     small_body_a_vals = np.linspace(0.3, 0.8, num_em+num_ptsml) # equally spaced locations in disk range
     em_indices = np.round(np.linspace(0, len(small_body_a_vals) - 1, num=num_em)).astype(int) # picks num_em equally spaced indices
     em_a_vals = small_body_a_vals[em_indices]
@@ -79,8 +80,8 @@ def run_sim(dataset_id, sim_id):
     # Combine values for planets, ems, ptsmls
     m_vals = np.array(planets['m_vals'][:num_pl] + [m_em]*num_em + [m_ptsml]*num_ptsml) * m_earth
     r_vals = np.array(planets['r_vals'][:num_pl] + [r_em]*(num_em) + [r_ptsml]*num_ptsml) * r_earth
-    m_star = 1. # Msun
-    r_star = 1.5 * r_sun
+    m_star = 0.798 # Msun
+    r_star = 0.788 * r_sun
     a_vals = np.concatenate((planets['a_vals'][:num_pl], em_a_vals, ptsml_a_vals)) # Initial a_vals
     
     # Gas disk parameters
@@ -93,24 +94,18 @@ def run_sim(dataset_id, sim_id):
     
     # tau_a for first planet               # Converted to Msun/AU^2 from g/cm^2
     tau_a = 1/(2.7+1.1*alpha) / m_vals[0] / (Sigma_1au*AU**2 / Msun) * h_1au**2 / (2*np.pi) # for a = 1
-    tau_pl = 0 # planet formation timescale (set to tau_a, or 0 for planets only)
-    years = 2*tau_a # Set to 2*tau_a for 1 migrating planet, 6*tau_pl for 3 migrating planets
-    n_out = 50
+    tau_pl = tau_a # planet formation timescale (set to tau_a, or 0 for planets only)
+    years = 7*tau_a # Set to 2*tau_a for 1 migrating planet, 6*tau_pl for 3 migrating planets
+    n_out = 500
 
-    # Skip sims if any of the following conditions are met
-    if (base_dir.parent / f"sim_results/dataset{dataset_id}" / f"sim{sim_id}.h5").exists():
-        # print(f"Sim {sim_id} already exists. Skipping.")
-        return
-    if m_em not in [1e-6, 1e-4]:
-        return
-    
-    # if years <= 1200000: # (cutoff for ~35 hours of runtime on Midway is about 500 kyr, but sims may end early)
-    #     # print(f"Skipping sim {sim_id}: years = {years:.2e})")
+    # # Skip sims if any of the following conditions are met
+    # if (base_dir.parent / f"sim_results/dataset{dataset_id}" / f"sim{sim_id}.h5").exists():
+    #     # print(f"Sim {sim_id} already exists. Skipping.")
     #     return
     
     integrator = 'trace'
     embryos_active = False # if False, will still interact with planets (but not with other embryos)
-    end_when_no_ems = True # if True, will end the sim when all embryos are accreted or ejected
+    end_when_no_ems = False # if True, will end the sim when all embryos are accreted or ejected
     tau_dissipation = None # set to None for no disk dissipation, or a number for disk dissipation timescale [yr] (e.g. tau_a)
     collisions = True
 
@@ -153,12 +148,12 @@ def run_sim(dataset_id, sim_id):
         return # Allow continuation of other sims
     
 if __name__ == "__main__":
-    dataset_id = 2
+    dataset_id = 3
     
     # Job number passed from terminal line (or sbatch)
     job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
 
-    sims_per_job = 10800
+    sims_per_job = 1
     start_sim = job_id * sims_per_job
     end_sim = start_sim + sims_per_job
     

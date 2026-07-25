@@ -11,7 +11,7 @@ r_earth = u.earthRad.to(u.AU)
 m_earth = u.Mearth.to(u.Msun)
 r_sun = u.Rsun.to(u.AU)
 
-def plot_prettier(dpi=200, fontsize=8, usetex=False): 
+def plot_prettier(save_dpi=600, fig_dpi=200, fontsize=8, usetex=False): 
     '''
     Make plots look nicer compared to Matplotlib defaults
     Parameters: 
@@ -21,8 +21,8 @@ def plot_prettier(dpi=200, fontsize=8, usetex=False):
         usetex - bool, whether to use LaTeX to render fonds of axes labels 
                 use False if you don't have LaTeX installed on your system
     '''
-    plt.rcParams['figure.dpi']= dpi
-    plt.rc("savefig", dpi=dpi)
+    plt.rcParams['figure.dpi']= fig_dpi
+    plt.rc("savefig", dpi=save_dpi)
     plt.rc('font', size=fontsize)
     plt.rc('xtick', direction='in') 
     plt.rc('ytick', direction='in')

@@ -154,6 +154,22 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, n_out, particle_fa
         planet_d.m = 0
         planet_d.a = 50 # far enough away to not collide
         d_added = False
+    if num_pl > 3:
+        planet_e = sim.particles[4]
+        planet_e.m = 0
+        planet_e.a = 70 # far enough away to not collide
+        e_added = False
+    if num_pl > 4:
+        planet_f = sim.particles[5]
+        planet_f.m = 0
+        planet_f.a = 90 # far enough away to not collide
+        f_added = False
+    if num_pl > 5:
+        planet_g = sim.particles[6]
+        planet_g.m = 0
+        planet_g.a = 110 # far enough away to not collide
+        g_added = False
+    
     
     max_ptsml_added = int(pebble_flux * years)  # upper bound over the whole run
     num_rocks_max = num_rocks + max_ptsml_added
@@ -173,8 +189,8 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, n_out, particle_fa
     }
         
     sim.random_seed = 16 # For reproducibility
-   
-    removed_names = {'planet c', 'planet d'} # To keep track of removed rocks during sim
+    
+    removed_names = {'planet c', 'planet d', 'planet e', 'planet f', 'planet g'} # To keep track of removed rocks during sim
 
     for i, t in enumerate(stage_times):
         
@@ -189,9 +205,27 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, n_out, particle_fa
         if num_pl > 2:
             if not d_added and t > 2*tau_pl:
                 planet_d.m = m_vals[2]
-                planet_d.a = a_vals[1]
+                planet_d.a = a_vals[2]
                 d_added = True
                 removed_names.discard('planet d')
+        if num_pl > 3:
+            if not e_added and t > 3*tau_pl:
+                planet_e.m = m_vals[3]
+                planet_e.a = a_vals[3]
+                e_added = True
+                removed_names.discard('planet e')
+        if num_pl > 4:
+            if not f_added and t > 4*tau_pl:
+                planet_f.m = m_vals[4]
+                planet_f.a = a_vals[4]
+                f_added = True
+                removed_names.discard('planet f')
+        if num_pl > 5:
+            if not g_added and t > 5*tau_pl:
+                planet_g.m = m_vals[5]
+                planet_g.a = a_vals[5]
+                g_added = True
+                removed_names.discard('planet g')
 
         alive_rock_names = []
         min_P = 1 # period at 1 AU

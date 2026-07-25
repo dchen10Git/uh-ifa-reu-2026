@@ -9,12 +9,7 @@ import matplotlib.patheffects as path_effects
 import sys
 from matplotlib.gridspec import GridSpec
 from fractions import Fraction
-
-# Plot prettier
-plt.rc("savefig", dpi=600)
-plt.rcParams['mathtext.fontset'] = 'cm'
-plt.rcParams['font.family'] = 'serif'
-plt.rcParams['font.serif'] = ['Times New Roman'] + plt.rcParams['font.serif']
+from helpers import plot_prettier_lite
 
 RATIOS = [2/1, 5/3, 3/2, 4/3, 5/4, 6/5, 7/6, 1, 8/7, 11/9, 11/8, 9/7,
           7/5, 8/5, 7/4, 9/8, 10/9, 11/10, 12/11, 13/12, 14/13, 13/11, 13/10]
@@ -51,7 +46,7 @@ def bin_continuous_axis(df, col, nbins):
 
 AXIS_CONFIGS = {
     "Sigma_1au": dict(scale="log", label=r"$\Sigma_{0}\;(\mathrm{g\,cm^{-2}})$",
-                       edges=geometric_edges, tick_step=3, tick_fmt=lambda v: f"{v:.0f}"),
+                       edges=geometric_edges, tick_step=3, tick_fmt=lambda v: f"{round(v, -1):.0f}"),
     "h_1au": dict(scale="log", label=r"$h_{0}$",
                   edges=geometric_edges, tick_step=3, tick_fmt=lambda v: f"{v:.3f}"),
     "log_K2": dict(scale="linear", label=r"$\log \mathcal{K_2}$",
@@ -264,7 +259,7 @@ def plot_param_grid_map(outcomes, value_col, label, x_col="Sigma_1au", y_col="h_
         cbar.ax.minorticks_off()
     elif "survived" in value_col:
         cbar.set_ticks([1, 2, 3])
-    elif "embryos_inside" in value_col:
+    elif "embryos_inside" in value_col or "resonant_embryos" in value_col:
         cbar.set_ticks([0, 1, 2, 3])
         cbar.ax.minorticks_off()
     cbar.ax.tick_params(direction="inout")
@@ -339,20 +334,20 @@ def plot_param_grid_facets(outcomes, value_col, label, facet_col, x_col="Sigma_1
     plt.show()
 
 FACET_LABELS = {
-    "m_em": r"m_{\rm em}",
+    "m_em": r"M_{\rm em}",
 }
 
 def _facet_title(facet_col, fv):
     if facet_col in FACET_LABELS:
         # exponent = int(np.log10(fv))
-        return rf"${FACET_LABELS[facet_col]}$ = {fv}$\,m_\oplus$"
+        return rf"${FACET_LABELS[facet_col]}$ = {fv}$\,M_\oplus$"
     return f"{facet_col} = {fv:.2g}"
 
 def plot_param_grid_multi(outcomes, value_col, label, facet_col="m_em",
                            x_col="Sigma_1au", y_col="h_1au", ncols=3,
                            panel_size=4.0, cmap="viridis", vmin=None, vmax=None,
                            cbar_gap=0.15, cbar_width_ratio=0.05,
-                           x_tick_step=None, y_tick_step=None, show_text=True):
+                           x_tick_step=None, y_tick_step=None, show_text=True, bad='lightgray', start_tick_index=0):
     """
     One panel per facet_col value (e.g. m_em), each a Sigma_1au x h_1au grid
     of value_col, laid out with zero space between panels so adjacent axes
@@ -426,14 +421,14 @@ def plot_param_grid_multi(outcomes, value_col, label, facet_col="m_em",
         elif 'survived' in value_col:
             cmap_obj = mcolors.ListedColormap(["#482173", "#2E6F8E", "#29AF7F"])
             norm = mcolors.BoundaryNorm([0.5, 1.5, 2.5, 3.5], cmap_obj.N)
-        elif 'embryos_inside' in value_col:
-            cmap_obj = plt.colormaps['viridis'].resampled(4)
+        elif 'embryos_inside' in value_col or 'resonant_embryos' in value_col:
+            cmap_obj = plt.colormaps[cmap].resampled(4)
             norm = mcolors.BoundaryNorm([-0.5, 0.5, 1.5, 2.5, 3.5], cmap_obj.N)
         else:
             cmap_obj = plt.get_cmap(cmap)
             norm = None
             
-        cmap_obj.set_bad("#D873F1")
+        cmap_obj.set_bad(bad)
 
         mesh = ax.pcolormesh(x_edges, y_edges, values.T, cmap=cmap_obj, norm=norm,
                               vmin=None if norm else vmin, vmax=None if norm else vmax,
@@ -461,8 +456,8 @@ def plot_param_grid_multi(outcomes, value_col, label, facet_col="m_em",
 
         ax.set_xscale(xcfg["scale"])
         ax.set_yscale(ycfg["scale"])
-        ax.set_xticks(x_vals[0::x_tick_step])
-        ax.set_yticks(y_vals[0::y_tick_step])
+        ax.set_xticks(x_vals[start_tick_index::x_tick_step])
+        ax.set_yticks(y_vals[start_tick_index::y_tick_step])
         ax.minorticks_off()
         ax.tick_params(axis="both", direction="inout", labelsize=8)
 
@@ -470,19 +465,18 @@ def plot_param_grid_multi(outcomes, value_col, label, facet_col="m_em",
         is_left_edge = (c == 0)
 
         if is_bottom_edge:
-            ax.set_xticklabels([xcfg["tick_fmt"](v) for v in x_vals[0::x_tick_step]])
-            ax.set_xlabel(xcfg["label"])
+            ax.set_xticklabels([xcfg["tick_fmt"](v) for v in x_vals[start_tick_index::x_tick_step]])
         else:
             ax.set_xticklabels([])
             ax.set_xlabel("")
 
         if is_left_edge:
-            ax.set_yticklabels([ycfg["tick_fmt"](v) for v in y_vals[0::y_tick_step]])
-            ax.set_ylabel(ycfg["label"])
+            ax.set_yticklabels([ycfg["tick_fmt"](v) for v in y_vals[start_tick_index::y_tick_step]])
+            
         else:
             ax.set_yticklabels([])
             ax.set_ylabel("")
-
+                    
         # Inset facet label instead of a title (a title would overlap the
         # panel above it now that hspace is 0)
         ax.text(0.97, 0.03, _facet_title(facet_col, fv), transform=ax.transAxes,
@@ -493,6 +487,12 @@ def plot_param_grid_multi(outcomes, value_col, label, facet_col="m_em",
             spine.set_linewidth(0.8)
             spine.set_color("black")
             spine.set_zorder(10)
+
+    # fig.supxlabel(xcfg["label"])
+    # fig.supylabel(ycfg["label"])
+    
+    fig.supxlabel(r"Surface density at 1 au $(\Sigma_0)$ $\left[\text{g cm}^{-2}\right]$", fontsize=12)
+    fig.supylabel("Aspect ratio at 1 au $(h_0)$", fontsize=12)
 
     for idx in range(len(facet_vals), nrows * ncols):
         r, c = divmod(idx, ncols)
@@ -513,13 +513,15 @@ def plot_param_grid_multi(outcomes, value_col, label, facet_col="m_em",
         cbar = fig.colorbar(mesh, cax=cax, fraction=1.0)
         cbar.set_label(label)
         
-    if "embryos_inside" in value_col:
+    if "embryos_inside" in value_col or "resonant_embryos" in value_col:
         cbar.set_ticks([0, 1, 2, 3])
         cbar.ax.minorticks_off()    
         
     plt.show()
 
 if __name__ == "__main__":
+    plot_prettier_lite()
+    
     assert len(sys.argv) == 2 or len(sys.argv) == 3
     dataset_id = sys.argv[1]
 
