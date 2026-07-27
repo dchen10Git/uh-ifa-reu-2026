@@ -6,8 +6,8 @@ import warnings
 warnings.filterwarnings('ignore')
 
 from resonance_criteria import *
-from helpers import get_omega, plot_prettier_lite
-plot_prettier_lite(dpi=600)
+from helpers import get_omega, plot_prettier
+plot_prettier()
 
 # Unit conversions
 AU = u.AU.to(u.cm)
@@ -36,9 +36,9 @@ with open("fg_library.pkl", "rb") as fpkl:
 
 # === PARAMETERS ===
 # grid: m1 on x, h_1au on y
-n_m1, n_h = 50, 50
-m1_grid = np.logspace(np.log10(1e-10), np.log10(1e-1), n_m1) * m_earth # inner planet mass
-h_1au_grid = np.logspace(np.log10(0.01), np.log10(0.30), n_h) # aspect ratio
+n_m1, n_h = 400, 400
+m1_grid = np.logspace(np.log10(2e-1), np.log10(3), n_m1) * m_earth # inner planet mass
+h_1au_grid = np.logspace(np.log10(0.01), np.log10(0.11), n_h) # aspect ratio
 
 klist = [1, 2, 3, 4, 5, 6, 7]  # 1 indicates overstable for ALL resonances
 
@@ -130,7 +130,7 @@ else:
     background_label = "Overstable"
     colorbar_title = r'Resonance index $k$'
 
-fig, ax = plt.subplots(figsize=(7, 6))
+fig, ax = plt.subplots(figsize=(5,4))
 
 cmap = plt.cm.get_cmap('inferno', len(klist)).copy()
 cmap.set_bad('lightgray')     # NaN -> gray
@@ -203,10 +203,10 @@ ax.legend(handles=legend_handles,
 
 ax.set_xscale('log')
 ax.set_yscale('log')
-ax.set_xlabel(r'$m_1$ [$m_\oplus$]')
-ax.set_ylabel(r'$h/r$')
-# ax.set_xticks([3,4,5])
-# ax.set_xticklabels(['3', '4', '5'])
+ax.set_xlabel(r'$M_1$ [$M_\oplus$]')
+ax.set_ylabel(r'$h_0$')
+ax.set_xticks([0.2, 0.3, 0.5, 1, 2, 3])
+ax.set_xticklabels(['0.2', '0.3', '0.5', '1', '2', '3'])
 ax.set_yticks([0.01, 0.02, 0.04, 0.06, 0.08, 0.10, 0.15, 0.20])
 ax.set_yticklabels(['0.01', '0.02', '0.04', '0.06', '0.08', '0.10', '0.15', '0.20'])
 ax.set_xlim(m1_grid[0]/m_earth, m1_grid[-1]/m_earth)
@@ -218,7 +218,7 @@ title_prefix = {
     "adiabaticity": "Adiabatic capture boundaries",
     "both": "Overstability & adiabaticity boundaries",
 }[criterion_mode]
-ax.set_title(rf'{title_prefix} | $p = {p_coupling}$ | $m_2 ={m2/m_earth:.2g} M_\oplus$')
+# ax.set_title(rf'{title_prefix} | $p = {p_coupling}$ | $m_2 ={m2/m_earth:.2g} M_\oplus$')
 
 plt.show()
 
