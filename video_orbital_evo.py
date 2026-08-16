@@ -338,9 +338,9 @@ def main():
     if args.output:
         out_path = Path(args.output)
     elif args.gif:
-        out_path = Path(f"Figures/orbital_evo_ds{args.dataset}_sim{args.sim}.gif")
+        out_path = Path(f"../Videos/orbital_evo_ds{args.dataset}_sim{args.sim}.gif")
     else:
-        out_path = Path(f"Figuresorbital_evo_ds{args.dataset}_sim{args.sim}.mp4")
+        out_path = Path(f"../Videos/orbital_evo_ds{args.dataset}_sim{args.sim}.mp4")
 
     print(f"Rendering {args.frames} frames → {out_path} ...")
 

@@ -352,7 +352,7 @@ def plot_param_grid_facets(outcomes, value_col, label, facet_col, x_col="Sigma_1
     plt.show()
 
 FACET_LABELS = {
-    "m_em": r"M_{\rm em}",
+    "m_em": r"M_{\rm ptsml}",
 }
 
 def _facet_title(facet_col, fv):
@@ -433,7 +433,10 @@ def plot_param_grid_multi(outcomes, value_col, label, facet_col="m_em",
         vmax = finite.max() if vmax is None else vmax
 
     nrows = int(np.ceil(len(facet_vals) / ncols))
-    fig = plt.figure(figsize=(2 + 2 * ncols, 1.5 + 2 * nrows))
+    if ncols == 1:
+        fig = plt.figure(figsize=(5, 5))
+    else:
+        fig = plt.figure(figsize=(2 + 2.5 * ncols, 1.5 + 2.5 * nrows))
 
     outer_gs = GridSpec(1, 2, figure=fig, width_ratios=[1, cbar_width_ratio], wspace=cbar_gap)
     grid_gs = outer_gs[0].subgridspec(nrows, ncols, wspace=0, hspace=0)
@@ -516,6 +519,13 @@ def plot_param_grid_multi(outcomes, value_col, label, facet_col="m_em",
         ax.set_yticks(y_vals[start_tick_index::y_tick_step])
         ax.minorticks_off()
         ax.tick_params(axis="both", direction="inout", labelsize=8)
+        
+        # # Rotate the labels using tick_params
+        # ax.tick_params(axis='x', labelrotation=45)
+
+        # # Ensure proper alignment so text ends under the tick
+        # for label in ax.get_xticklabels():
+        #     label.set_horizontalalignment('right')
 
         is_bottom_edge = (r == last_active_row[c])
         is_left_edge = (c == 0)
@@ -572,7 +582,8 @@ def plot_param_grid_multi(outcomes, value_col, label, facet_col="m_em",
             cbar.set_ticks(range(n_colors))
             cbar.set_ticklabels(tick_labels)
             cbar.ax.minorticks_off()
-
+        
+        
     plt.show()
 
 if __name__ == "__main__":    
