@@ -128,7 +128,7 @@ if criterion_mode == "adiabaticity":
 else:
     k_bg = k_background(diffs, criterion='smallest')
     background_label = "Overstable"
-    colorbar_title = r'Resonance index $k$'
+    colorbar_title = r'Resonance index $j$' # labeling this as j to be consistent in the paper
 
 fig, ax = plt.subplots(figsize=(5,4))
 

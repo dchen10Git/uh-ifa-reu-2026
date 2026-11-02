@@ -9,7 +9,8 @@ import matplotlib.patheffects as path_effects
 import sys
 from matplotlib.gridspec import GridSpec
 from fractions import Fraction
-from helpers import plot_prettier_lite
+from helpers import plot_prettier
+plot_prettier(fontsize=12, fig_dpi=150)
 
 RATIOS = [2/1, 5/3, 3/2, 4/3, 5/4, 6/5, 7/6, 1, 8/7, 11/9, 11/8, 9/7,
           7/5, 8/5, 7/4, 9/8, 10/9, 11/10, 12/11, 13/12, 14/13, 13/11, 13/10]
@@ -45,7 +46,7 @@ def bin_continuous_axis(df, col, nbins):
     return df, bin_col, bin_labels
 
 AXIS_CONFIGS = {
-    "Sigma_1au": dict(scale="log", label=r"$\Sigma_{0}\;(\mathrm{g\,cm^{-2}})$",
+    "Sigma_1au": dict(scale="log", label=r"$\Sigma_{1 \mathrm{au}}\;(\mathrm{g\,cm^{-2}})$",
                        edges=geometric_edges, tick_step=3, tick_fmt=lambda v: f"{round(v, -1):.0f}"),
     "h_1au": dict(scale="log", label=r"$h_{0}$",
                   edges=geometric_edges, tick_step=3, tick_fmt=lambda v: f"{v:.3f}"),
@@ -378,7 +379,7 @@ def bin_grid_axis(df, col, n_bins):
 def plot_param_grid_multi(outcomes, value_col, label, facet_col="m_em",
                            x_col="Sigma_1au", y_col="h_1au", ncols=3,
                            panel_size=4.0, cmap="viridis", vmin=None, vmax=None,
-                           cbar_gap=0.15, cbar_width_ratio=0.05,
+                           cbar_gap=0.05, cbar_width_ratio=0.03,
                            x_tick_step=None, y_tick_step=None, show_text=True,
                            bad='lightgray', start_tick_index=0, nbins=None,
                            aggfunc="mean", discrete=False):
@@ -436,7 +437,7 @@ def plot_param_grid_multi(outcomes, value_col, label, facet_col="m_em",
     if ncols == 1:
         fig = plt.figure(figsize=(5, 5))
     else:
-        fig = plt.figure(figsize=(2 + 2.5 * ncols, 1.5 + 2.5 * nrows))
+        fig = plt.figure(figsize=(4 + 2 * ncols, 1.41 + 2 * nrows))
 
     outer_gs = GridSpec(1, 2, figure=fig, width_ratios=[1, cbar_width_ratio], wspace=cbar_gap)
     grid_gs = outer_gs[0].subgridspec(nrows, ncols, wspace=0, hspace=0)
@@ -534,7 +535,7 @@ def plot_param_grid_multi(outcomes, value_col, label, facet_col="m_em",
         y_labels_src = y_bin_medians if nbins is not None else y_vals
 
         if is_bottom_edge:
-            ax.set_xticklabels([xcfg["tick_fmt"](v) for v in x_labels_src[start_tick_index::x_tick_step]])
+            ax.set_xticklabels([xcfg["tick_fmt"](v) for v in x_labels_src[start_tick_index::x_tick_step]], rotation=30, ha='right', va='top', rotation_mode='anchor', y=0.02) 
         else:
             ax.set_xticklabels([])
             ax.set_xlabel("")
@@ -552,8 +553,8 @@ def plot_param_grid_multi(outcomes, value_col, label, facet_col="m_em",
             spine.set_color("black")
             spine.set_zorder(10)
 
-    fig.supxlabel(r"Surface density at 1 au $(\Sigma_0)$ $\left[\text{g cm}^{-2}\right]$", fontsize=12)
-    fig.supylabel("Aspect ratio at 1 au $(h_0)$", fontsize=12)
+    fig.supxlabel(r"Surface density at 1 au $(\Sigma_{1\,\text{au}})$ $\left[\text{g cm}^{-2}\right]$", fontsize=11)
+    fig.supylabel("Aspect ratio at 1 au $(h_0)$", fontsize=11, x=0.05)
 
     for idx in range(len(facet_vals), nrows * ncols):
         r, c = divmod(idx, ncols)
@@ -572,8 +573,9 @@ def plot_param_grid_multi(outcomes, value_col, label, facet_col="m_em",
         cax.set_xticks([])
         cax.set_yticks([])
         cbar = fig.colorbar(mesh, cax=cax, fraction=1.0)
-        cbar.set_label(label)
-
+        cbar.set_label(label, fontsize=11)
+        cbar.ax.tick_params(labelsize=10)
+        
         if discrete_levels is not None:
             n_colors = len(discrete_levels) + (1 if has_na else 0)
             tick_labels = [format_cell_value(v, value_col) for v in discrete_levels]
@@ -581,9 +583,10 @@ def plot_param_grid_multi(outcomes, value_col, label, facet_col="m_em",
                 tick_labels.append("N/A")
             cbar.set_ticks(range(n_colors))
             cbar.set_ticklabels(tick_labels)
+            cbar.ax.tick_params(labelsize=10) 
             cbar.ax.minorticks_off()
-        
-        
+    
+    fig.subplots_adjust(bottom=0.17) 
     plt.show()
 
 if __name__ == "__main__":    
@@ -596,17 +599,22 @@ if __name__ == "__main__":
         snapshot = int(sys.argv[2])
     outcomes = pd.read_hdf(f"dfs/outcomes{dataset_id}_{snapshot}.h5", key="df") # Load data
 
-    outcomes = outcomes[outcomes['m_em'] <= 0.1] # this prevents the code from breaking
+    mask = (outcomes['m_em'].isin([1e-6, 1e-3, 1e-1]))
+
+    outcomes['embryos_inside (%)'] = 100 * outcomes['embryos_inside'] / 20
+    outcomes['b_resonant_embryos (%)'] = 100 * outcomes['b_resonant_embryos'] / 20
+    outcomes['c_resonant_embryos (%)'] = 100 * outcomes['c_resonant_embryos'] / 20
     outcomes['scattered (%)'] = outcomes["em_surv_rate (%)"] - 100*outcomes["embryos_inside"]/6
     outcomes['accreted (%)'] = 100 - outcomes["em_surv_rate (%)"]
 
-    ncols = 4
-    x_tick_step = 3
-    y_tick_step = 3
+    ncols = 3
+    x_tick_step = 1
+    y_tick_step = 1
+    nbins = 10
 
-    # plot_param_grid_multi(outcomes, "embryos_inside", "Embryos between two planets", show_text=False, ncols=ncols, x_tick_step=x_tick_step, y_tick_step=y_tick_step)
+    plot_param_grid_multi(outcomes[mask], "embryos_inside (%)", "Planetesimals between two planets (%)", show_text=False, ncols=ncols, x_tick_step=x_tick_step, y_tick_step=y_tick_step, start_tick_index=0, cmap='viridis', nbins=nbins, vmax=12, bad='#440154')
     # plot_param_grid_multi(outcomes, "em_surv_rate (%)", "Total embryos survived (%)", show_text=False, ncols=ncols, x_tick_step=x_tick_step, y_tick_step=y_tick_step)
     # plot_param_grid_multi(outcomes, "resonant_embryos", "Resonant embryos", show_text=False, ncols=ncols, x_tick_step=x_tick_step, y_tick_step=y_tick_step)
     # plot_param_grid_multi(outcomes, "scattered (%)", "Embryos scattered (%)", show_text=False, ncols=ncols, x_tick_step=x_tick_step, y_tick_step=y_tick_step)
     # plot_param_grid_multi(outcomes, "accreted (%)", "Embryos accreted (%)", show_text=False, ncols=ncols, x_tick_step=x_tick_step, y_tick_step=y_tick_step)
-    plot_param_grid_multi(outcomes, "sim_id", "Sim ID", ncols=ncols, x_tick_step=x_tick_step, y_tick_step=y_tick_step)
+    # plot_param_grid_multi(outcomes, "sim_id", "Sim ID", ncols=ncols, x_tick_step=x_tick_step, y_tick_step=y_tick_step)

@@ -111,7 +111,7 @@ def tau_gas(rock, parameters, t, ide=True):
         tuple: Tuple containing tau_a, tau_e, tau_i for the given object,
         in units of years
     """                                     
-    Sigma_1au, h_1au, alpha, beta = parameters['Sigma_1au'], parameters['h_1au'], parameters['alpha'], parameters['beta']
+    Sigma_1au, h_1au, alpha, beta, C_d = parameters['Sigma_1au'], parameters['h_1au'], parameters['alpha'], parameters['beta'], parameters['C_d']
     
     # If disk dissipation is enabled, reduce Sigma_1au over time
     if 'tau_dissipation' in parameters:
@@ -131,7 +131,6 @@ def tau_gas(rock, parameters, t, ide=True):
     v_K = r*Omega_k # cm/s
         
     rho_p = m_p / (4/3 * np.pi * R_p**3) # Ptsml density (mass / vol) in g/cm^3
-    C_d = 0.44 # for km-sized ptsmls and small Mach number (see Brasser 2007) 
     rho_g = Sigma/(np.sqrt(np.pi)*(h*r)) # g/cm^3
     eta = (11/16) * h**2 
     

@@ -133,7 +133,8 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, n_out, particle_fa
             * completed_sim (bool): Whether the integration was fully compelted.
     '''
     m_vals, r_vals, a_vals = parameters["m_vals"], parameters["r_vals"], parameters["a_vals"]
-    pebble_flux, stop_replenishment, m_ptsml, r_ptsml = parameters['pebble_flux'], parameters['stop_replenishment'], parameters['m_ptsml'], parameters['r_ptsml']
+    pebble_flux, stop_replenishment = parameters['pebble_flux'], parameters['stop_replenishment']
+    m_em, r_em, m_ptsml, r_ptsml = parameters['m_em'], parameters['r_em'], parameters['m_ptsml'], parameters['r_ptsml']
     num_pl, num_em, num_ptsml = parameters["num_pl"], parameters["num_em"], parameters["num_ptsml"]
     tau_pl = parameters["tau_pl"]
     num_rocks = len(rock_names)
@@ -314,7 +315,7 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, n_out, particle_fa
             print(f"\nSim {sim_id} Failed; NaN at step {i}, t={t:.1f} yr")
             return False # Abort simulation and tell simulate_system()
 
-        # Replenish planetesimals
+        # Replenish planetesimals/embryos
         if stop_replenishment:
             if t < stop_replenishment:
                 pebble_accumulator += pebble_flux * (years / (n_out*factor))
@@ -322,20 +323,39 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, n_out, particle_fa
                 pebble_accumulator -= num_added
 
                 if num_added > 0:
-                    ptsml_locs = np.random.uniform(0.4, 0.9, size=num_added)
-                    for k in range(num_added):
-                        new_name = f"ptsml {num_ptsml + k}"
-                        rock_names.append(new_name)
-                        particle_fate[new_name] = "alive" # track fate for new ptsmls
-                        sim.add(m=m_ptsml*m_earth, r=r_ptsml*r_earth, a=ptsml_locs[k],
-                                hash=new_name, primary=star,
-                                M=np.random.uniform(0, 2*np.pi),
-                                Omega=np.random.uniform(0, 2*np.pi),
-                                omega=np.random.uniform(0, 2*np.pi),
-                                inc=np.random.rayleigh(0.5e-3)
-                            )
-                        hash_to_name[int(sim.particles[-1].hash.value)] = new_name # register hash to name
-                    num_ptsml += num_added
+                    
+                    if parameters['add_embryos']:
+                        em_locs = np.random.uniform(0.3, 0.8, size=num_added)
+                        for k in range(num_added):
+                            new_name = f"embryo {num_em + k}"
+                            rock_names.append(new_name)
+                            particle_fate[new_name] = "alive" # track fate for new ems
+                            sim.add(m=m_em*m_earth, r=r_em*r_earth, a=em_locs[k],
+                                    hash=new_name, primary=star,
+                                    M=np.random.uniform(0, 2*np.pi),
+                                    Omega=np.random.uniform(0, 2*np.pi),
+                                    omega=np.random.uniform(0, 2*np.pi),
+                                    inc=np.random.rayleigh(0.5e-3)
+                                )
+                            hash_to_name[int(sim.particles[-1].hash.value)] = new_name # register hash to name
+                        num_ptsml += num_added
+                        
+                    else: # add planetesimals
+                        ptsml_locs = np.random.uniform(0.3, 0.8, size=num_added)
+                        for k in range(num_added):
+                            new_name = f"ptsml {num_ptsml + k}"
+                            rock_names.append(new_name)
+                            particle_fate[new_name] = "alive" # track fate for new ptsmls
+                            sim.add(m=m_ptsml*m_earth, r=r_ptsml*r_earth, a=ptsml_locs[k],
+                                    hash=new_name, primary=star,
+                                    M=np.random.uniform(0, 2*np.pi),
+                                    Omega=np.random.uniform(0, 2*np.pi),
+                                    omega=np.random.uniform(0, 2*np.pi),
+                                    inc=np.random.rayleigh(0.5e-3)
+                                )
+                            hash_to_name[int(sim.particles[-1].hash.value)] = new_name # register hash to name
+                        num_ptsml += num_added
+                    
                     sim.move_to_com()
         
     # Convert to df
