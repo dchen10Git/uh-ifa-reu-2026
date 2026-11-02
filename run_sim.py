@@ -157,7 +157,7 @@ if __name__ == "__main__":
     # Job number passed from terminal line (or sbatch)
     job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
 
-    sims_per_job = 3
+    sims_per_job = 1
     start_sim = job_id * sims_per_job
     end_sim = start_sim + sims_per_job
     
