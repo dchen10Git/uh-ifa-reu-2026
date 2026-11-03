@@ -29,7 +29,7 @@ def get_params(method, sim_id):
 
         m_em_vals  = np.array([1e-6, 1e-5, 1e-4, 1e-3, 1e-2]) # [m_earth]
         h_vals     = np.logspace(np.log10(0.01), np.log10(0.10), n_h)
-        sigma_vals = np.logspace(np.log10(1000), np.log10(8000), n_sigma)
+        sigma_vals = np.logspace(np.log10(1000), np.log10(10000), n_sigma)
 
         M_grid, H_grid, Sigma_grid = np.meshgrid(m_em_vals, h_vals, sigma_vals, indexing='ij')
 
@@ -141,8 +141,8 @@ def run_sim(dataset_id, sim_id):
         print(f"Sim {sim_id} already exists. Skipping...")
         return
         
-    if m_em > 1e-5:
-        return
+    # if m_em > 1e-5:
+    #     return
     
     # Sim integration!
     try:
