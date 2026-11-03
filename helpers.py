@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
+from matplotlib import font_manager
 import astropy.units as u
 import numpy as np
+import os
 
 # === UNIT CONVERSIONS ===
 AU = u.AU.to(u.cm)    
@@ -37,12 +39,16 @@ def plot_prettier(save_dpi=600, fig_dpi=200, fontsize=8, usetex=False):
         plt.rcParams['mathtext.fontset'] = 'cm'
         plt.rcParams['font.family'] = 'serif'
         plt.rcParams['font.serif'] = ['Times New Roman'] + plt.rcParams['font.serif']
-        
+
 def plot_prettier_lite(fig_dpi=200, save_dpi=500, fontsize=8):
-    plt.rcParams['figure.dpi']= fig_dpi
+    for f in ["times.ttf", "timesbd.ttf", "timesi.ttf", "timesbi.ttf"]:
+        path = f"/mnt/c/Windows/Fonts/{f}"
+        if os.path.exists(path):
+            font_manager.fontManager.addfont(path)
+    plt.rcParams['figure.dpi'] = fig_dpi
     plt.rc("savefig", dpi=save_dpi)
     plt.rc('font', size=fontsize)
-    plt.rcParams['mathtext.fontset'] = 'cm'
+    plt.rcParams['mathtext.fontset'] = 'stix'
     plt.rcParams['font.family'] = 'serif'
     plt.rcParams['font.serif'] = ['Times New Roman'] + plt.rcParams['font.serif']
 
