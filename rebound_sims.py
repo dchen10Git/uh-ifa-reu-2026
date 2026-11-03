@@ -112,7 +112,7 @@ def load_simulation_run(file_path):
 
 # === RUNNING THE SIM ===
 
-def integrate_sim(sim, sim_id, rock_names, parameters, years, n_out, particle_fate, hash_to_name, start_time=0, print_step=False):
+def integrate_sim(sim, sim_id, rock_names, parameters, years, n_out, particle_fate, start_time=0, print_step=False):
     '''Integrates a REBOUND simulation over a given number of years and
     saves the new state of the sim.
     
@@ -124,7 +124,6 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, n_out, particle_fa
         years (float): Number of years to integrate.
         n_out (int): Number of outputs to save to disk.
         particle_fate (dict): Dictionary containing particle fates for keeping track.
-        hash_to_name (dict): Dictionary containing rebound hashes as keys and rock names as values. 
         start_time (float, optional): Start time of the integration, defaults to 0.
         
     Returns:
@@ -189,7 +188,7 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, n_out, particle_fa
         "tau_i": np.full((n_out, num_rocks_max), np.nan),
     }
         
-    sim.random_seed = 16 # For reproducibility
+    np.random.seed(16) # For reproducibility
     
     removed_names = {'planet c', 'planet d', 'planet e', 'planet f', 'planet g'} # To keep track of removed rocks during sim
 
@@ -268,7 +267,7 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, n_out, particle_fa
                     particle_fate[name] = fate
                     hist["a"][i,j], hist["e"][i,j], hist["inc"][i,j] = orb.a, orb.e, orb.inc
                     hist["P"][i,j], hist["l"][i,j], hist["pomega"][i,j] = orb.P, orb.l, orb.pomega
-                    sim.remove(hash=name)
+                    sim.remove(name)
                     removed_names.add(name)
                     # print(f"{name} removed; {fate}")
                     continue
@@ -331,13 +330,12 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, n_out, particle_fa
                             rock_names.append(new_name)
                             particle_fate[new_name] = "alive" # track fate for new ems
                             sim.add(m=m_em*m_earth, r=r_em*r_earth, a=em_locs[k],
-                                    hash=new_name, primary=star,
+                                    name=new_name, primary=star,
                                     M=np.random.uniform(0, 2*np.pi),
                                     Omega=np.random.uniform(0, 2*np.pi),
                                     omega=np.random.uniform(0, 2*np.pi),
                                     inc=np.random.rayleigh(0.5e-3)
                                 )
-                            hash_to_name[int(sim.particles[-1].hash.value)] = new_name # register hash to name
                         num_ptsml += num_added
                         
                     else: # add planetesimals
@@ -347,13 +345,12 @@ def integrate_sim(sim, sim_id, rock_names, parameters, years, n_out, particle_fa
                             rock_names.append(new_name)
                             particle_fate[new_name] = "alive" # track fate for new ptsmls
                             sim.add(m=m_ptsml*m_earth, r=r_ptsml*r_earth, a=ptsml_locs[k],
-                                    hash=new_name, primary=star,
+                                    name=new_name, primary=star,
                                     M=np.random.uniform(0, 2*np.pi),
                                     Omega=np.random.uniform(0, 2*np.pi),
                                     omega=np.random.uniform(0, 2*np.pi),
                                     inc=np.random.rayleigh(0.5e-3)
                                 )
-                            hash_to_name[int(sim.particles[-1].hash.value)] = new_name # register hash to name
                         num_ptsml += num_added
                     
                     sim.move_to_com()
@@ -397,31 +394,26 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, n_out
     sim.integrator = parameters['integrator']
     
     if parameters['integrator'] == 'trace':
-        sim.ri_trace.r_crit_hill = 5
+        sim.integrator.r_crit_hill = 5
     
     # Add the star
-    sim.add(m=parameters["m_star"], r=parameters["r_star"], hash='star')
+    sim.add(m=parameters["m_star"], r=parameters["r_star"], name='star')
     num_rocks = len(rock_names)
     
-    # Add rocks 
-    hash_to_name = {int(sim.particles[0].hash.value): 'star'} # initialize dict with star hash
+    # Add rocks (non-stellar particles)
     for i in range(num_rocks): 
         sim.add(
             m=parameters['m_vals'][i], 
             r=parameters['r_vals'][i], 
             a=parameters['a_vals'][i], 
-            hash=rock_names[i], 
+            name=rock_names[i], 
             primary=sim.particles[0], 
             M=np.random.uniform(0, 2*np.pi),     # mean anomaly
             Omega=np.random.uniform(0, 2*np.pi), # longtiude of ascending node
             omega=np.random.uniform(0, 2*np.pi), # argument of periapsis
             inc=np.random.rayleigh(0.5e-3)
         )
-        
-        # Sync hashes to names
-        h = int(sim.particles[-1].hash.value)
-        hash_to_name[h] = rock_names[i]
-        
+                
     sim.N_active = 1 + parameters['num_pl'] # Star + planets (no embryos)
     
     if parameters['embryos_active']: # Make embryos active particles if wanted
@@ -454,8 +446,8 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, n_out
                 victim_idx = i
                 remove_code = 1
                 
-            survivor_name = hash_to_name[int(ps[survivor_idx].hash.value)]
-            victim_name = hash_to_name[int(ps[victim_idx].hash.value)]
+            survivor_name = ps[survivor_idx].name
+            victim_name = ps[victim_idx].name
                         
             # Log collision
             collision_log.append({
@@ -496,7 +488,7 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, n_out
             
     print(f"Starting Sim {sim_id:<2d} | {years/1000:.1f} kyr | Sigma_1au: {parameters['Sigma_1au']:.0f} | h_1au: {parameters['h_1au']:.3f} | m_em: {parameters['m_em']:.1g}", flush=True)
     
-    data = integrate_sim(sim, sim_id, rock_names, parameters, years, n_out, particle_fate, hash_to_name, start_time=0, print_step=print_step)
+    data = integrate_sim(sim, sim_id, rock_names, parameters, years, n_out, particle_fate, start_time=0, print_step=print_step)
         
     # Save data
     save_simulation_run(data, sim_id, file_path, 
