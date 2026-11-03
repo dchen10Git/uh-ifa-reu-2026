@@ -11,6 +11,8 @@ import sys
 import os
 import warnings
 warnings.filterwarnings('ignore')
+import logging
+logging.getLogger("distributed.comm.tcp").setLevel(logging.CRITICAL)
 
 import rebound_sims as reb_sims
 
@@ -38,7 +40,7 @@ def get_params(method, sim_id):
         Sigma_1au = Sigma_grid.ravel()[sim_id]
     
     elif method == 'manual':
-        Sigma_1au, h_1au, m_em = 2000, 0.08, 1e-5
+        Sigma_1au, h_1au, m_em = 8000, 0.05, 1e-5
         
     elif method == 'random':
         rng = np.random.default_rng(sim_id)
@@ -65,10 +67,10 @@ def run_sim(dataset_id, sim_id):
         "r_vals": [10, 10, 10] # [r_earth]; younger planets are puffier
     }
 
-    num_pl, num_em, num_ptsml = 2, 50, 0
+    num_pl, num_em, num_ptsml = 2, 5, 0
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
-    method = 'grid' # set to grid, manual, or random
+    method = 'manual' # set to grid, manual, or random
     Sigma_1au, h_1au, m_em = get_params(method, sim_id)
     
     # Setting up em/ptsml disk
@@ -153,12 +155,12 @@ def run_sim(dataset_id, sim_id):
         return # Allow continuation of other sims
     
 if __name__ == "__main__":
-    dataset_id = "2pl_AdaptiveDrag"
+    dataset_id = "test"
     
     # Job number passed from terminal line (or sbatch)
     job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
 
-    sims_per_job = 125
+    sims_per_job = 1
     start_sim = job_id * sims_per_job
     end_sim = start_sim + sims_per_job
     
