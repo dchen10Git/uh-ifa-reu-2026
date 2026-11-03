@@ -1,6 +1,5 @@
 # === IMPORTS ===
 import numpy as np
-from scipy import special
 from astropy import units as u
 import warnings
 import rebound
@@ -111,7 +110,7 @@ def tau_gas(rock, parameters, t, ide=True):
         tuple: Tuple containing tau_a, tau_e, tau_i for the given object,
         in units of years
     """                                     
-    Sigma_1au, h_1au, alpha, beta, C_d = parameters['Sigma_1au'], parameters['h_1au'], parameters['alpha'], parameters['beta'], parameters['C_d']
+    Sigma_1au, h_1au, alpha, beta = parameters['Sigma_1au'], parameters['h_1au'], parameters['alpha'], parameters['beta']
     
     # If disk dissipation is enabled, reduce Sigma_1au over time
     if 'tau_dissipation' in parameters:
@@ -127,7 +126,7 @@ def tau_gas(rock, parameters, t, ide=True):
     Omega_k = 2*np.pi/rock.P / yr # Keplerian orbital frequency, converted to 1/s
     
     Sigma = Sigma_1au * (r/AU)**-alpha
-    h = h_1au * (r/AU)**beta # scale height (dimensionless
+    h = h_1au * (r/AU)**beta # scale height (dimensionless)
     v_K = r*Omega_k # cm/s
         
     rho_p = m_p / (4/3 * np.pi * R_p**3) # Ptsml density (mass / vol) in g/cm^3
@@ -137,6 +136,12 @@ def tau_gas(rock, parameters, t, ide=True):
     K = 2.157
     E = 1.211
     alpha_rho = 3 # In Adachi, gas density index (not surface density)
+    
+    # Adaptive drag coefficient based on Mach number (Mach = v_rel / c_s)
+    v_rel_over_vK = (2 * E / np.pi) * e + (2 / np.pi) * inc + eta  # same velocity factor as Adachi's tau_e
+    Mach = v_rel_over_vK / h                                       # c_s = h * v_K
+    C_d_max = 2.0
+    C_d = np.minimum(0.44 + 0.21 * Mach**2, C_d_max)
     
     t_0 = (8*rho_p*R_p) / (3*C_d*rho_g*v_K) / yr # yr
     t_a = t_0 / (2 * ((2*(2*E+K)/(3*np.pi)*e + 2/np.pi*inc + eta) * eta + 

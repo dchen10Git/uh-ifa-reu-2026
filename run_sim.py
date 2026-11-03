@@ -25,12 +25,11 @@ r_sun = u.Rsun.to(u.AU)
 
 def get_params(method, sim_id):
     if method == 'grid':
-        n_sigma, n_h, n_m = 30, 30, 12  # product equals total sim count
+        n_sigma, n_h, n_m = 5, 5, 5  # product equals total sim count
 
-        # m_em_vals  = np.logspace(np.log10(1e-8), np.log10(1e-1), n_m)
-        m_em_vals  = np.array([1e-6, 5e-6, 1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2, 1e-1, 5e-7]) # [m_earth]
+        m_em_vals  = np.array([1e-6, 1e-5, 1e-4, 1e-3, 1e-2]) # [m_earth]
         h_vals     = np.logspace(np.log10(0.01), np.log10(0.10), n_h)
-        sigma_vals = np.logspace(np.log10(170), np.log10(17000), n_sigma)
+        sigma_vals = np.logspace(np.log10(1000), np.log10(8000), n_sigma)
 
         M_grid, H_grid, Sigma_grid = np.meshgrid(m_em_vals, h_vals, sigma_vals, indexing='ij')
 
@@ -39,7 +38,7 @@ def get_params(method, sim_id):
         Sigma_1au = Sigma_grid.ravel()[sim_id]
     
     elif method == 'manual':
-        Sigma_1au, h_1au, m_em = 2000, 0.05, 1e-5
+        Sigma_1au, h_1au, m_em = 2000, 0.08, 1e-5
         
     elif method == 'random':
         rng = np.random.default_rng(sim_id)
@@ -69,7 +68,7 @@ def run_sim(dataset_id, sim_id):
     num_pl, num_em, num_ptsml = 2, 50, 0
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
-    method = 'manual' # set to grid, manual, or random
+    method = 'grid' # set to grid, manual, or random
     Sigma_1au, h_1au, m_em = get_params(method, sim_id)
     
     # Setting up em/ptsml disk
@@ -95,13 +94,9 @@ def run_sim(dataset_id, sim_id):
     
     # tau_a for first planet               # Converted to Msun/AU^2 from g/cm^2
     tau_a = 1/(2.7+1.1*alpha) / m_vals[0] / (Sigma_1au*AU**2 / Msun) * h_1au**2 / (2*np.pi) # for a = 1
-    tau_pl = tau_a # planet formation timescale (set to tau_a, or 0 for planets only)
-    years = 2*tau_a # Set to 2*tau_a for 1 migrating planet, 6*tau_pl for 3 migrating planets
-    n_out = 1000 # Minimum of 50 would be fine, increase to a few thousand for better resolution
-
-    # if check_sim_exists(dataset_id, sim_id):
-    #     print(f"Sim {sim_id} already exists. Skipping...")
-    #     return
+    tau_pl = 0 # planet formation timescale (set to tau_a, or 0 for planets only)
+    years = 2*tau_a # Set to 3*tau_a for 1 migrating planet, 6*tau_pl for 3 migrating planets
+    n_out = 500 # Minimum of 50 would be fine, increase to a few thousand for better resolution
 
     # Set parameters
     parameters = {
@@ -126,7 +121,6 @@ def run_sim(dataset_id, sim_id):
                   "beta": beta,                                 # Flaring index (h/r ~ r^beta)
                   "ide_position": 0.1,
                   "ide_width": h_1au * 0.1**beta,               # Scale height at IDE
-                  "C_d": 2,
                   
                   # Replenishment parameters
                   "pebble_flux": 0,                             # number per year; num_em/tau_a -> replenish original amount after tau_a passed
@@ -143,6 +137,13 @@ def run_sim(dataset_id, sim_id):
                   "collisions": True,
                 } 
     
+    if check_sim_exists(dataset_id, sim_id):
+        print(f"Sim {sim_id} already exists. Skipping...")
+        return
+        
+    if m_em > 1e-5:
+        return
+    
     # Sim integration!
     try:
         reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, years, n_out, print_step=True)
@@ -152,12 +153,12 @@ def run_sim(dataset_id, sim_id):
         return # Allow continuation of other sims
     
 if __name__ == "__main__":
-    dataset_id = "2pl_Cd2"
+    dataset_id = "2pl_AdaptiveDrag"
     
     # Job number passed from terminal line (or sbatch)
     job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
 
-    sims_per_job = 1
+    sims_per_job = 125
     start_sim = job_id * sims_per_job
     end_sim = start_sim + sims_per_job
     
