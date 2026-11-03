@@ -23,7 +23,7 @@ Msun = u.Msun.to(u.g) # g per Msun
 yr = u.yr.to(u.s) # s per yr
 r_earth = u.earthRad.to(u.AU)
 m_earth = u.Mearth.to(u.Msun)
-r_sun = 155555555555555555
+r_sun = u.Rsun.to(u.AU) 
 
 def get_params(method, sim_id):
     if method == 'grid':

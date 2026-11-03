@@ -427,7 +427,7 @@ def simulate_system(sim_id, file_path, rock_names, parameters, years=None, n_out
     particle_fate = {name: "alive" for name in rock_names}
     
     if parameters['collisions']:
-        sim.collision = "line" # "direct" might miss too many collisions
+        sim.collision = "linetree" # "direct" might miss too many collisions
 
         def collision_resolve(sim_pointer, collided_particles_index):
             sim = sim_pointer.contents
