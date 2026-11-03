@@ -136,12 +136,12 @@ def run_sim(dataset_id, sim_id):
                   "embryos_active": False,                      # if False, will still interact with planets (but not with other embryos)
                   "end_when_no_ems": False,                     # if True, will end the sim when all embryos are accreted or ejected
                   "tau_dissipation": None,                      # set to None for no disk dissipation, or a number for disk dissipation timescale [yr] (e.g. tau_a)
-                  "collisions": False,
+                  "collisions": True,
                 } 
     
-    if check_sim_exists(dataset_id, sim_id):
-        print(f"Sim {sim_id} already exists. Skipping...")
-        return
+    # if check_sim_exists(dataset_id, sim_id):
+    #     print(f"Sim {sim_id} already exists. Skipping...")
+    #     return
         
     # if m_em > 1e-5:
     #     return
@@ -155,7 +155,7 @@ def run_sim(dataset_id, sim_id):
         return # Allow continuation of other sims
     
 if __name__ == "__main__":
-    dataset_id = "2pl_AdaptiveDrag"
+    dataset_id = "test"
     
     # Job number passed from terminal line (or sbatch)
     job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
