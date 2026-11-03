@@ -206,4 +206,3 @@ dependencies:
       - rebound==5.2.2
       - reboundx==5.1.0
       - widgetsnbextension==4.0.16
-prefix: /home/danis/miniconda3/envs/rebound-env
