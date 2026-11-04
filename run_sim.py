@@ -27,11 +27,11 @@ r_sun = u.Rsun.to(u.AU)
 
 def get_params(method, sim_id):
     if method == 'grid':
-        n_sigma, n_h, n_m = 5, 5, 5  # product equals total sim count
+        n_sigma, n_h, n_m = 5, 6, 2  # product equals total sim count
 
-        m_em_vals  = np.array([1e-6, 1e-5, 1e-4, 1e-3, 1e-2]) # [m_earth]
-        h_vals     = np.logspace(np.log10(0.01), np.log10(0.10), n_h)
-        sigma_vals = np.logspace(np.log10(1000), np.log10(10000), n_sigma)
+        m_em_vals  = np.array([1e-6, 1e-5]) # [m_earth]
+        h_vals     = np.logspace(np.log10(0.02), np.log10(0.10), n_h)
+        sigma_vals = np.logspace(np.log10(1000), np.log10(8000), n_sigma)
 
         M_grid, H_grid, Sigma_grid = np.meshgrid(m_em_vals, h_vals, sigma_vals, indexing='ij')
 
@@ -67,10 +67,10 @@ def run_sim(dataset_id, sim_id):
         "r_vals": [10, 10, 10] # [r_earth]; younger planets are puffier
     }
 
-    num_pl, num_em, num_ptsml = 2, 2, 0
+    num_pl, num_em, num_ptsml = 2, 50, 0
     rock_names = planets['name'][:num_pl] + [f"embryo {i}" for i in range(num_em)] + [f"ptsml {i}" for i in range(num_ptsml)]
     
-    method = 'manual' # set to grid, manual, or random
+    method = 'grid' # set to grid, manual, or random
     Sigma_1au, h_1au, m_em = get_params(method, sim_id)
     
     # Setting up em/ptsml disk
@@ -155,12 +155,12 @@ def run_sim(dataset_id, sim_id):
         return # Allow continuation of other sims
     
 if __name__ == "__main__":
-    dataset_id = "test"
+    dataset_id = "2pl_AdaptiveDrag"
     
     # Job number passed from terminal line (or sbatch)
     job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
 
-    sims_per_job = 1
+    sims_per_job = 60
     start_sim = job_id * sims_per_job
     end_sim = start_sim + sims_per_job
     
@@ -177,11 +177,12 @@ if __name__ == "__main__":
     if "SLURM_CPUS_PER_TASK" in os.environ:
         n_cpus = int(os.environ["SLURM_CPUS_PER_TASK"])
     else:
-        n_cpus = os.cpu_count() or 1  # PC fallback
+        n_cpus = os.cpu_count() - 2 or 1  # PC fallback; save 2 for other processes
 
-    print(f"CPUs: {n_cpus}")
+    print(f"CPUs in use: {n_cpus}")
     
-    cluster = LocalCluster(dashboard_address=None)
+    cluster = LocalCluster(n_workers=n_cpus, threads_per_worker=1, processes=True)
+    # print("See dashboard: http://localhost:8787/status")    
     
     client = Client(cluster)
     
