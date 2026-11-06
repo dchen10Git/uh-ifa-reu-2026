@@ -27,11 +27,11 @@ r_sun = u.Rsun.to(u.AU)
 
 def get_params(method, sim_id):
     if method == 'grid':
-        n_sigma, n_h, n_m = 5, 6, 2  # product equals total sim count
+        n_sigma, n_h, n_m = 40, 40, 6  # product equals total sim count
 
-        m_em_vals  = np.array([1e-6, 1e-5]) # [m_earth]
+        m_em_vals  = np.array([1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1]) # [m_earth]
         h_vals     = np.logspace(np.log10(0.02), np.log10(0.10), n_h)
-        sigma_vals = np.logspace(np.log10(1000), np.log10(8000), n_sigma)
+        sigma_vals = np.logspace(np.log10(100), np.log10(1000), n_sigma)
 
         M_grid, H_grid, Sigma_grid = np.meshgrid(m_em_vals, h_vals, sigma_vals, indexing='ij')
 
@@ -100,6 +100,8 @@ def run_sim(dataset_id, sim_id):
     years = 2*tau_a # Set to 3*tau_a for 1 migrating planet, 6*tau_pl for 3 migrating planets
     n_out = 500 # Minimum of 50 would be fine, increase to a few thousand for better resolution
 
+    embryos_active = True if m_em == 1e-1 else False # if False, will still interact with planets (but not with other embryos)
+
     # Set parameters
     parameters = {
                   # Particle parameters
@@ -133,17 +135,17 @@ def run_sim(dataset_id, sim_id):
                   "tau_pl": tau_pl,
                   "years": years,
                   "integrator": 'trace',
-                  "embryos_active": False,                      # if False, will still interact with planets (but not with other embryos)
+                  "embryos_active": embryos_active,
                   "end_when_no_ems": False,                     # if True, will end the sim when all embryos are accreted or ejected
                   "tau_dissipation": None,                      # set to None for no disk dissipation, or a number for disk dissipation timescale [yr] (e.g. tau_a)
                   "collisions": True,
                 } 
     
-    # if check_sim_exists(dataset_id, sim_id):
-    #     print(f"Sim {sim_id} already exists. Skipping...")
-    #     return
+    if check_sim_exists(dataset_id, sim_id):
+        print(f"Sim {sim_id} already exists. Skipping...")
+        return
         
-    # if m_em > 1e-5:
+    # if m_em != 1e-1:
     #     return
     
     # Sim integration!
@@ -160,7 +162,7 @@ if __name__ == "__main__":
     # Job number passed from terminal line (or sbatch)
     job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
 
-    sims_per_job = 60
+    sims_per_job = 1600*6
     start_sim = job_id * sims_per_job
     end_sim = start_sim + sims_per_job
     
@@ -177,7 +179,7 @@ if __name__ == "__main__":
     if "SLURM_CPUS_PER_TASK" in os.environ:
         n_cpus = int(os.environ["SLURM_CPUS_PER_TASK"])
     else:
-        n_cpus = os.cpu_count() - 2 or 1  # PC fallback; save 2 for other processes
+        n_cpus = os.cpu_count() - 1 or 1  # PC fallback; save 1 for other processes
 
     print(f"CPUs in use: {n_cpus}")
     
