@@ -30,8 +30,8 @@ def get_params(method, sim_id):
         n_sigma, n_h, n_m = 40, 40, 6  # product equals total sim count
 
         m_em_vals  = np.array([1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1]) # [m_earth]
-        h_vals     = np.logspace(np.log10(0.02), np.log10(0.10), n_h)
-        sigma_vals = np.logspace(np.log10(100), np.log10(1000), n_sigma)
+        h_vals     = np.logspace(np.log10(0.01), np.log10(0.10), n_h)
+        sigma_vals = np.logspace(np.log10(170), np.log10(17000), n_sigma)
 
         M_grid, H_grid, Sigma_grid = np.meshgrid(m_em_vals, h_vals, sigma_vals, indexing='ij')
 

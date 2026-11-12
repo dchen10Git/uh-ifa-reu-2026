@@ -34,7 +34,7 @@ def run_sim(dataset_id, sim_id):
     planets = {
         "name": ['planet b', 'planet c', 'planet d'],
         "m_vals": [5, 5, 5], # [m_earth]
-        "a_vals": [0.11, 1, 1], # [AU]; 0.11 for IDE
+        "a_vals": [0.5, 1, 1], # [AU]; 0.11 for IDE
         "r_vals": [10, 10, 10] # [r_earth]; younger planets are puffier
     }
 
