@@ -64,8 +64,8 @@ def do_not_run_sim(dataset_id, sim_id, parameters):
     #     print(f"Sim {sim_id} has m_em = {parameters['m_em']}. Skipping...")
     #     return
 
-    if parameters['years'] > 1e6: # Skip sims that take too long
-        print(f"Sim {sim_id} will take longer than 1e6 years. Skipping...")
+    if parameters['years'] > 9e5: # Skip sims that take too long
+        print(f"Sim {sim_id} will take longer than 900 kyr. Skipping...")
         return True
     
     # Skip sims that already exist
@@ -157,7 +157,7 @@ def run_sim(dataset_id, sim_id):
                   "years": years,
                   "integrator": 'trace',
                   "embryos_active": embryos_active,
-                  "end_when_no_ems": False,                     # if True, will end the sim when all embryos are accreted or ejected
+                  "end_when_no_ems": True,                     # if True, will end the sim when all embryos are accreted or ejected
                   "tau_dissipation": None,                      # set to None for no disk dissipation, or a number for disk dissipation timescale [yr] (e.g. tau_a)
                   "collisions": True,
                 } 
