@@ -1,6 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=test
 #SBATCH --output=sbatch_test.out
+#SBATCH --error=sbatch_test.err
 #SBATCH --time=0:10:00
 #SBATCH --mem-per-cpu=2048
 #SBATCH --cpus-per-task=1
