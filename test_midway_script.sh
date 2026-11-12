@@ -9,12 +9,12 @@
 echo "Script started."
 echo "Array task: ${SLURM_ARRAY_TASK_ID}"
 
-module load python/anaconda-2025.12
+module load python 2>/dev/null
 source $(conda info --base)/etc/profile.d/conda.sh
 conda activate rebound-env
 
 echo "Environment for rebound sims activated."
-which python
+echo "Python path: $(which python)"
 
 python3 test_run_sim.py ${SLURM_ARRAY_TASK_ID}
 
