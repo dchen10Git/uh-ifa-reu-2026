@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --job-name=newCd%a
-#SBATCH --output=sbatch%a.out
+#SBATCH --job-name=newCd
+#SBATCH --output=sbatch_%a.out
 #SBATCH --time=24:00:00
 #SBATCH --mem-per-cpu=2048
 #SBATCH --cpus-per-task=30
