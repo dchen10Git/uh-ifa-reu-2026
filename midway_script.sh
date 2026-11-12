@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --job-name=ptsmls21
-#SBATCH --output=sbatch21_%a.out
+#SBATCH --job-name=newCd
+#SBATCH --output=sbatch.out
 #SBATCH --time=36:00:00
 #SBATCH --mem-per-cpu=2048
 #SBATCH --cpus-per-task=25
@@ -9,11 +9,11 @@
 echo "Script started."
 echo "Array task: ${SLURM_ARRAY_TASK_ID}"
 
-module load Anaconda3
+module load python/anaconda-2025.12
 
-source activate myenv
+source activate rebound-env
 
-echo "Environment activated."
+echo "Environment for rebound sims activated."
 
 python3 run_sim.py ${SLURM_ARRAY_TASK_ID}
 
