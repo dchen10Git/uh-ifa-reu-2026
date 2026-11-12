@@ -9,7 +9,7 @@
 echo "Script started."
 echo "Array task: ${SLURM_ARRAY_TASK_ID}"
 
-module load python 2>/dev/null
+module load python 2>/dev/null # Ignore warnings with module loading
 source $(conda info --base)/etc/profile.d/conda.sh
 conda activate rebound-env
 
