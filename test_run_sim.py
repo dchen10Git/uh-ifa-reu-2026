@@ -140,7 +140,7 @@ if __name__ == "__main__":
     if "SLURM_CPUS_PER_TASK" in os.environ:
         n_cpus = int(os.environ["SLURM_CPUS_PER_TASK"])
     else:
-        n_cpus = os.cpu_count() - 2 or 1  # PC fallback; save 2 for other processes
+        n_cpus = os.cpu_count() or 1  # PC fallback
 
     print(f"CPUs in use: {n_cpus}")
     
