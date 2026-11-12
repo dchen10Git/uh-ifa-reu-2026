@@ -54,6 +54,27 @@ def check_sim_exists(dataset_id, sim_id):
     file_path = base_dir.parent / "sim_results" / f"dataset{dataset_id}" / f"sim{sim_id}.h5"
     return file_path.exists()
 
+def do_not_run_sim(dataset_id, sim_id, parameters):
+    '''Returns True if we don't want the sim to be run.'''
+   
+    if sim_id < 1400: # Skip first 1400 sims (already done)
+        return True
+
+    # if parameters['m_em'] != 1e-1:
+    #     print(f"Sim {sim_id} has m_em = {parameters['m_em']}. Skipping...")
+    #     return
+
+    if parameters['years'] > 1e6: # Skip sims that take too long
+        print(f"Sim {sim_id} will take longer than 1e6 years. Skipping...")
+        return True
+    
+    # Skip sims that already exist
+    if check_sim_exists(dataset_id, sim_id):
+        print(f"Sim {sim_id} already exists. Skipping...")
+        return True
+    
+    return False # we want it to run
+
 def run_sim(dataset_id, sim_id):         
     # Set where to save the data
     base_dir = Path.cwd()
@@ -97,8 +118,8 @@ def run_sim(dataset_id, sim_id):
     # tau_a for first planet               # Converted to Msun/AU^2 from g/cm^2
     tau_a = 1/(2.7+1.1*alpha) / m_vals[0] / (Sigma_1au*AU**2 / Msun) * h_1au**2 / (2*np.pi) # for a = 1
     tau_pl = 0 # planet formation timescale (set to tau_a, or 0 for planets only)
-    years = 2*tau_a # Set to 3*tau_a for 1 migrating planet, 6*tau_pl for 3 migrating planets
-    n_out = 500 # Minimum of 50 would be fine, increase to a few thousand for better resolution
+    years = 2*tau_a # Set to 2*tau_a for 1 migrating planet, 6*tau_pl for 3 migrating planets
+    n_out = 250 # Minimum of 50 would be fine, increase to a few thousand for better resolution
 
     embryos_active = True if m_em == 1e-1 else False # if False, will still interact with planets (but not with other embryos)
 
@@ -141,12 +162,8 @@ def run_sim(dataset_id, sim_id):
                   "collisions": True,
                 } 
     
-    if check_sim_exists(dataset_id, sim_id):
-        print(f"Sim {sim_id} already exists. Skipping...")
+    if do_not_run_sim(dataset_id, sim_id, parameters):
         return
-        
-    # if m_em != 1e-1:
-    #     return
     
     # Sim integration!
     try:
@@ -162,7 +179,7 @@ if __name__ == "__main__":
     # Job number passed from terminal line (or sbatch)
     job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
 
-    sims_per_job = 1600*6
+    sims_per_job = 96 # 9600 total sims
     start_sim = job_id * sims_per_job
     end_sim = start_sim + sims_per_job
     
