@@ -1,6 +1,10 @@
-# To run: python3 -W ignore run_sim.py <start_sim_id; default 0>
+# On Midway: sbatch midway_script.sh   (sims from sim_ids_to_run.txt, split across the job array)
+# Locally (sims too long for Midway): python3 -W ignore run_sim.py --long
+# Flags: --ids-file FILE (sim_id list; default sim_ids_to_run.txt) | --long (run only sims > MAX_YEARS instead of <=)
+#        --job-id I --n-jobs N (run slice I of N; default from SLURM array env, else 0 of 1 = everything)
 
 # === IMPORTS ===
+import argparse
 import numpy as np
 from astropy import units as u
 from pathlib import Path
@@ -15,6 +19,8 @@ import logging
 logging.getLogger("distributed.comm.tcp").setLevel(logging.CRITICAL)
 
 import rebound_sims as reb_sims
+
+MAX_YEARS = 9e5 # sims longer than this are run locally, not on Midway
 
 # === UNIT CONVERSIONS ===
 AU = u.AU.to(u.cm) # cm per AU
@@ -57,29 +63,27 @@ def check_sim_exists(dataset_id, sim_id):
 def do_not_run_sim(dataset_id, sim_id, parameters):
     '''Returns True if we don't want the sim to be run.'''
    
-    if sim_id < 1400: # Skip first 1400 sims (already done)
-        return True
+    # if sim_id < 1400: # Skip first 1400 sims (already done)
+    #     return True
 
     # if parameters['m_em'] != 1e-1:
     #     print(f"Sim {sim_id} has m_em = {parameters['m_em']}. Skipping...")
     #     return
 
-    if parameters['years'] > 9e5: # Skip sims that take too long
-        print(f"Sim {sim_id} will take longer than 900 kyr. Skipping...")
+    if parameters['years'] > MAX_YEARS: # Skip sims that take too long
+        print(f"Sim {sim_id} will take longer than {MAX_YEARS/1000:.0f} kyr. Skipping...")
         return True
     
-    # Skip sims that already exist
-    if check_sim_exists(dataset_id, sim_id):
-        print(f"Sim {sim_id} already exists. Skipping...")
-        return True
+    # # Skip sims that already exist
+    # if check_sim_exists(dataset_id, sim_id):
+    #     print(f"Sim {sim_id} already exists. Skipping...")
+    #     return True
     
     return False # we want it to run
 
-def run_sim(dataset_id, sim_id):         
-    # Set where to save the data
-    base_dir = Path.cwd()
-    file_path = base_dir.parent / "sim_results" / f"dataset{dataset_id}" / f"sim{sim_id}.h5"
-    
+def build_setup(sim_id):
+    '''Builds everything needed to integrate a sim. Cheap (no integration), so it is
+    also used to look up the sim length before deciding where to run a sim.'''
     # === PARAMETERS ===
     planets = {
         "name": ['planet b', 'planet c', 'planet d'],
@@ -160,11 +164,23 @@ def run_sim(dataset_id, sim_id):
                   "end_when_no_ems": True,                     # if True, will end the sim when all embryos are accreted or ejected
                   "tau_dissipation": None,                      # set to None for no disk dissipation, or a number for disk dissipation timescale [yr] (e.g. tau_a)
                   "collisions": True,
-                } 
-    
-    if do_not_run_sim(dataset_id, sim_id, parameters):
+                }
+
+    return rock_names, parameters, years, n_out
+
+def sim_years(sim_id):
+    return build_setup(sim_id)[2]
+
+def run_sim(dataset_id, sim_id, allow_long=False):
+    # Set where to save the data
+    base_dir = Path.cwd()
+    file_path = base_dir.parent / "sim_results" / f"dataset{dataset_id}" / f"sim{sim_id}.h5"
+
+    rock_names, parameters, years, n_out = build_setup(sim_id)
+
+    if not allow_long and do_not_run_sim(dataset_id, sim_id, parameters):
         return
-    
+
     # Sim integration!
     try:
         reb_sims.simulate_system(sim_id, file_path, rock_names, parameters, years, n_out, print_step=True)
@@ -176,13 +192,29 @@ def run_sim(dataset_id, sim_id):
 if __name__ == "__main__":
     dataset_id = "2pl_AdaptiveDrag"
     
-    # Job number passed from terminal line (or sbatch)
-    job_id = int(sys.argv[1]) if len(sys.argv) > 1 else 0
+    # Under sbatch, job_id/n_jobs come from the array (SLURM_ARRAY_TASK_ID / SLURM_ARRAY_TASK_COUNT),
+    # so changing `#SBATCH --array=` is all that is needed to change the split.
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--ids-file", default="sim_ids_to_run.txt", help="text file, one sim_id per line")
+    parser.add_argument("--job-id", type=int, default=int(os.environ.get("SLURM_ARRAY_TASK_ID", 0)))
+    parser.add_argument("--n-jobs", type=int, default=int(os.environ.get("SLURM_ARRAY_TASK_COUNT", 1)))
+    parser.add_argument("--long", action="store_true",
+                        help="run ONLY the sims longer than MAX_YEARS (for local runs); default runs only the shorter ones")
+    args = parser.parse_args()
 
-    sims_per_job = 96 # 9600 total sims
-    start_sim = job_id * sims_per_job
-    end_sim = start_sim + sims_per_job
-    
+    # Select this job's sims: filter by length, sort longest-first, deal out round-robin
+    # so every job gets a similar mix of long and short sims (sim length varies by ~1000x).
+    sim_ids = np.unique(np.loadtxt(args.ids_file, dtype=int, ndmin=1))
+    lengths = np.array([sim_years(s) for s in sim_ids])
+    keep = lengths > MAX_YEARS if args.long else lengths <= MAX_YEARS
+    sim_ids, lengths = sim_ids[keep], lengths[keep]
+    order = np.argsort(-lengths, kind="stable")
+    my_sims = [int(s) for s in sim_ids[order][args.job_id::args.n_jobs]]
+    print(f"Job {args.job_id}/{args.n_jobs}: {len(my_sims)} of {len(sim_ids)} sims "
+          f"({'>' if args.long else '<='} {MAX_YEARS:.0e} yr)")
+    if not my_sims:
+        sys.exit(0)
+
     dataset_dir = Path.cwd().parent / "sim_results" / f"dataset{dataset_id}"
     
     # Create the folder
@@ -205,7 +237,9 @@ if __name__ == "__main__":
     
     client = Client(cluster)
     
-    futures = [client.submit(run_sim, dataset_id, sim_id) for sim_id in range(start_sim, end_sim)]
+    # Priority keeps the longest sims starting first so they don't straggle at the end
+    futures = [client.submit(run_sim, dataset_id, sim_id, args.long, priority=len(my_sims) - i)
+               for i, sim_id in enumerate(my_sims)]
     client.gather(futures)
 
     client.close()

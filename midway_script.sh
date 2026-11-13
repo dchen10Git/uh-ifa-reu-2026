@@ -4,7 +4,7 @@
 #SBATCH --error=sbatch_%a.err
 #SBATCH --time=24:00:00
 #SBATCH --mem-per-cpu=2048
-#SBATCH --cpus-per-task=16
+#SBATCH --cpus-per-task=32
 #SBATCH --account=pi-fabrycky
 #SBATCH --array=0-99
 echo "Script started."
@@ -17,6 +17,6 @@ conda activate rebound-env
 echo "Environment for rebound sims activated."
 echo "Python path: $(which python)"
 
-python3 run_sim.py ${SLURM_ARRAY_TASK_ID}
+python3 -W ignore run_sim.py --ids-file sim_ids_to_run.txt   # job-id / n-jobs are read from the SLURM array env
 
 echo "Finished running."
