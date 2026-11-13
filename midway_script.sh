@@ -17,6 +17,9 @@ conda activate rebound-env
 echo "Environment for rebound sims activated."
 echo "Python path: $(which python)"
 
-python3 -W ignore run_sim.py --ids-file sim_ids_to_run.txt   # job-id / n-jobs are read from the SLURM array env
+N_TASKS=${SLURM_ARRAY_TASK_COUNT:-$(( SLURM_ARRAY_TASK_MAX - SLURM_ARRAY_TASK_MIN + 1 ))} # fallback if the count var is unset
+echo "Task ${SLURM_ARRAY_TASK_ID} of ${N_TASKS}"
+
+python3 -W ignore run_sim.py --ids-file sim_ids_to_run.txt --job-id ${SLURM_ARRAY_TASK_ID} --n-jobs ${N_TASKS}
 
 echo "Finished running."

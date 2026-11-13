@@ -1,7 +1,7 @@
 # On Midway: sbatch midway_script.sh   (sims from sim_ids_to_run.txt, split across the job array)
-# Locally (sims too long for Midway): python3 -W ignore run_sim.py --long
-# Flags: --ids-file FILE (sim_id list; default sim_ids_to_run.txt) | --long (run only sims > MAX_YEARS instead of <=)
-#        --job-id I --n-jobs N (run slice I of N; default from SLURM array env, else 0 of 1 = everything)
+# Locally (sims too long for Midway): python3 -W ignore run_sim.py --long --job-id 0 --n-jobs 1
+# Flags: --job-id I --n-jobs N (REQUIRED: run slice I of N; --job-id 0 --n-jobs 1 = everything)
+#        --ids-file FILE (sim_id list; default sim_ids_to_run.txt) | --long (run only sims > MAX_YEARS instead of <=)
 
 # === IMPORTS ===
 import argparse
@@ -123,7 +123,7 @@ def build_setup(sim_id):
     tau_a = 1/(2.7+1.1*alpha) / m_vals[0] / (Sigma_1au*AU**2 / Msun) * h_1au**2 / (2*np.pi) # for a = 1
     tau_pl = 0 # planet formation timescale (set to tau_a, or 0 for planets only)
     years = 2*tau_a # Set to 2*tau_a for 1 migrating planet, 6*tau_pl for 3 migrating planets
-    n_out = 250 # Minimum of 50 would be fine, increase to a few thousand for better resolution
+    n_out = 200 # Minimum of 50 would be fine, increase to a few thousand for better resolution
 
     embryos_active = True if m_em == 1e-1 else False # if False, will still interact with planets (but not with other embryos)
 
@@ -192,12 +192,11 @@ def run_sim(dataset_id, sim_id, allow_long=False):
 if __name__ == "__main__":
     dataset_id = "2pl_AdaptiveDrag"
     
-    # Under sbatch, job_id/n_jobs come from the array (SLURM_ARRAY_TASK_ID / SLURM_ARRAY_TASK_COUNT),
-    # so changing `#SBATCH --array=` is all that is needed to change the split.
+    # Under sbatch, midway_script.sh passes --job-id / --n-jobs from the array (SLURM_ARRAY_TASK_ID / _COUNT).
     parser = argparse.ArgumentParser()
     parser.add_argument("--ids-file", default="sim_ids_to_run.txt", help="text file, one sim_id per line")
-    parser.add_argument("--job-id", type=int, default=int(os.environ.get("SLURM_ARRAY_TASK_ID", 0)))
-    parser.add_argument("--n-jobs", type=int, default=int(os.environ.get("SLURM_ARRAY_TASK_COUNT", 1)))
+    parser.add_argument("--job-id", type=int, required=True, help="which slice to run (0-based)")
+    parser.add_argument("--n-jobs", type=int, required=True, help="total number of slices")
     parser.add_argument("--long", action="store_true",
                         help="run ONLY the sims longer than MAX_YEARS (for local runs); default runs only the shorter ones")
     args = parser.parse_args()
