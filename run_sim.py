@@ -1,5 +1,6 @@
 # On Midway: sbatch midway_script.sh   (sims from sim_ids_to_run.txt, split across the job array)
 # Locally (sims too long for Midway): python3 -W ignore run_sim.py --long --job-id 0 --n-jobs 1
+# Locally (everything in the ids file):  python3 -W ignore run_sim.py --all --job-id 0 --n-jobs 1
 # Flags: --job-id I --n-jobs N (REQUIRED: run slice I of N; --job-id 0 --n-jobs 1 = everything)
 #        --workers N (dask workers; default = SLURM CPUs, else all cores minus one)
 #        --ids-file FILE (sim_id list; default sim_ids_to_run.txt) | --long (run only sims > MAX_YEARS instead of <=)
@@ -201,19 +202,25 @@ if __name__ == "__main__":
     parser.add_argument("--workers", type=int, default=None,
                         help="number of dask workers (default: SLURM CPUs, else all local cores minus one)")
     parser.add_argument("--long", action="store_true",
-                        help="run ONLY the sims longer than MAX_YEARS (for local runs); default runs only the shorter ones")
+                        help="run only the sims longer than MAX_YEARS (for local runs); default runs only the shorter ones")
+    parser.add_argument("--all", action="store_true", dest="run_all",
+                        help="run every sim in the ids file, short and long (for running everything locally)")
     args = parser.parse_args()
+    allow_long = args.long or args.run_all
 
     # Select this job's sims: filter by length, sort longest-first, deal out round-robin
     # so every job gets a similar mix of long and short sims (sim length varies by ~1000x).
     sim_ids = np.unique(np.loadtxt(args.ids_file, dtype=int, ndmin=1))
     lengths = np.array([sim_years(s) for s in sim_ids])
-    keep = lengths > MAX_YEARS if args.long else lengths <= MAX_YEARS
+    if args.run_all:
+        keep = np.ones(len(sim_ids), dtype=bool)
+    else:
+        keep = lengths > MAX_YEARS if args.long else lengths <= MAX_YEARS
     sim_ids, lengths = sim_ids[keep], lengths[keep]
     order = np.argsort(-lengths, kind="stable")
     my_sims = [int(s) for s in sim_ids[order][args.job_id::args.n_jobs]]
-    print(f"Job {args.job_id}/{args.n_jobs}: {len(my_sims)} of {len(sim_ids)} sims "
-          f"({'>' if args.long else '<='} {MAX_YEARS:.0e} yr)")
+    which = "all lengths" if args.run_all else f"{'>' if args.long else '<='} {MAX_YEARS:.0e} yr"
+    print(f"Job {args.job_id}/{args.n_jobs}: {len(my_sims)} of {len(sim_ids)} sims ({which})")
     if not my_sims:
         sys.exit(0)
 
@@ -242,7 +249,7 @@ if __name__ == "__main__":
     client = Client(cluster)
     
     # Priority keeps the longest sims starting first so they don't straggle at the end
-    futures = [client.submit(run_sim, dataset_id, sim_id, args.long, priority=len(my_sims) - i)
+    futures = [client.submit(run_sim, dataset_id, sim_id, allow_long, priority=len(my_sims) - i)
                for i, sim_id in enumerate(my_sims)]
     client.gather(futures)
 
