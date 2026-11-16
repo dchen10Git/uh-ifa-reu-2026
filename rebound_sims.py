@@ -90,24 +90,29 @@ def load_simulation_run(file_path):
     
     '''
     result = {}
-    
-    with pd.HDFStore(file_path, mode="r") as store:
-        
-        planet_list = store["planet_list"].tolist()
-        
-        for planet_name in planet_list:
-            key = f"{planet_name}"
-            df = store[key]
-            
-            # Pull HDF5 attributes
-            storer = store.get_storer(key)
-            df.attrs["planet_name"] = storer.attrs.planet_name
-            df.attrs["sim_id"] = storer.attrs.sim_id
-            
-            result[planet_name] = df
-        
-        metadata = store[f"metadata"].to_dict()
-    
+
+    try:
+        with pd.HDFStore(file_path, mode="r") as store:
+
+            planet_list = store["planet_list"].tolist()
+            metadata = store[f"metadata"].to_dict()
+
+            for planet_name in planet_list:
+                key = f"{planet_name}"
+                df = store[key]
+
+                storer = store.get_storer(key)
+                df.attrs["planet_name"] = getattr(storer.attrs, "planet_name", planet_name)
+                df.attrs["sim_id"] = getattr(storer.attrs, "sim_id", metadata.get("sim_id"))
+
+                result[planet_name] = df
+    except FileNotFoundError:
+        raise
+    except Exception:
+        # Damaged/incomplete file (e.g. an interrupted save). Report it as a missing
+        # file so callers that already skip FileNotFoundError just move on silently.
+        raise FileNotFoundError(f"Unreadable simulation file: {file_path}") from None
+
     return result, metadata
 
 # === RUNNING THE SIM ===
