@@ -1,6 +1,7 @@
 # On Midway: sbatch midway_script.sh   (sims from sim_ids_to_run.txt, split across the job array)
 # Locally (sims too long for Midway): python3 -W ignore run_sim.py --long --job-id 0 --n-jobs 1
 # Flags: --job-id I --n-jobs N (REQUIRED: run slice I of N; --job-id 0 --n-jobs 1 = everything)
+#        --workers N (dask workers; default = SLURM CPUs, else all cores minus one)
 #        --ids-file FILE (sim_id list; default sim_ids_to_run.txt) | --long (run only sims > MAX_YEARS instead of <=)
 
 # === IMPORTS ===
@@ -197,6 +198,8 @@ if __name__ == "__main__":
     parser.add_argument("--ids-file", default="sim_ids_to_run.txt", help="text file, one sim_id per line")
     parser.add_argument("--job-id", type=int, required=True, help="which slice to run (0-based)")
     parser.add_argument("--n-jobs", type=int, required=True, help="total number of slices")
+    parser.add_argument("--workers", type=int, default=None,
+                        help="number of dask workers (default: SLURM CPUs, else all local cores minus one)")
     parser.add_argument("--long", action="store_true",
                         help="run ONLY the sims longer than MAX_YEARS (for local runs); default runs only the shorter ones")
     args = parser.parse_args()
@@ -224,7 +227,9 @@ if __name__ == "__main__":
     
     # === MULTIPROCESSING ===    
     # Start a local Dask cluster
-    if "SLURM_CPUS_PER_TASK" in os.environ:
+    if args.workers:
+        n_cpus = args.workers
+    elif "SLURM_CPUS_PER_TASK" in os.environ:
         n_cpus = int(os.environ["SLURM_CPUS_PER_TASK"])
     else:
         n_cpus = os.cpu_count() - 1 or 1  # PC fallback; save 1 for other processes
