@@ -465,36 +465,27 @@ if __name__ == "__main__":
         print("No new sims to analyze")
         sys.exit()
 
-    # Analyze in chunks of CHUNK sims, saving after each one
-    CHUNK = 50
-    all_outcomes = existing_outcomes # grows as chunks finish (None if no file yet)
+    disk_df = disk_params(dataset_id=dataset_id, sim_ids=sim_ids)
+    print("  Disk df collected", flush=True)
+    embryo_df = embryos_between_planets(dataset_id=dataset_id, sim_ids=sim_ids, inner='planet b', outer='planet c', amp_threshold=120, snapshot=snapshot)
+    print("  Embryos df collected", flush=True)
+    additional_df = additional_params(dataset_id=dataset_id, sim_ids=sim_ids)
+    print("  Additional df collected", flush=True)
+    accretion_df = get_ptsml_outcomes(dataset_id=dataset_id, sim_ids=sim_ids, snapshot=snapshot)
+    print("  Accretion df collected", flush=True)
 
-    for start in range(0, len(sim_ids), CHUNK):
-        chunk = sim_ids[start:start + CHUNK]
-        print(f"Chunk {start // CHUNK + 1}/{-(-len(sim_ids) // CHUNK)}: sims {chunk[0]}-{chunk[-1]}", flush=True)
+    merged_outcomes = reduce(lambda left, right: pd.merge(left, right, on='sim_id', how='outer'), [disk_df, embryo_df, additional_df, accretion_df])
 
-        disk_df = disk_params(dataset_id=dataset_id, sim_ids=chunk)
-        print("  Disk df collected", flush=True)
-        embryo_df = embryos_between_planets(dataset_id=dataset_id, sim_ids=chunk, inner='planet b', outer='planet c', amp_threshold=120, snapshot=snapshot)
-        print("  Embryos df collected", flush=True)
-        additional_df = additional_params(dataset_id=dataset_id, sim_ids=chunk)
-        print("  Additional df collected", flush=True)
-        accretion_df = get_ptsml_outcomes(dataset_id=dataset_id, sim_ids=chunk, snapshot=snapshot)
-        print("  Accretion df collected", flush=True)
+    # Drop unneeded columns
+    merged_outcomes = merged_outcomes.drop(columns=[
+                                                    'ptsml_surv_rate (%)',
+                                                    'ejec_rate (%)',
+                                                    'ptsml_a_median',
+                                                    'ptsml_e_median'
+                                                ])
 
-        chunk_outcomes = reduce(lambda left, right: pd.merge(left, right, on='sim_id', how='outer'), [disk_df, embryo_df, additional_df, accretion_df])
-
-        # Drop unneeded columns
-        chunk_outcomes = chunk_outcomes.drop(columns=[
-                                                      'ptsml_surv_rate (%)',
-                                                      'ejec_rate (%)',
-                                                      'ptsml_a_median',
-                                                      'ptsml_e_median'
-                                                  ])
-
-        all_outcomes = chunk_outcomes if all_outcomes is None else pd.concat([all_outcomes, chunk_outcomes], ignore_index=True)
-
-        all_outcomes.to_hdf(outcomes_path, key="df", mode="w") # Save to disk
-        print(f"  Saved ({len(all_outcomes)} total sims analyzed)", flush=True)
-
-    print("Done:", 0 if all_outcomes is None else len(all_outcomes), "total sims analyzed")
+    if merge:
+        merged_outcomes = pd.concat([existing_outcomes, merged_outcomes], ignore_index=True)
+        print("Merged with existing outcomes")
+    merged_outcomes.to_hdf(outcomes_path, key="df", mode="w") # Save to disk
+    print(f"  {len(merged_outcomes)} total sims analyzed", flush=True)
